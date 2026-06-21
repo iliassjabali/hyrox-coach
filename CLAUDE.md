@@ -17,19 +17,32 @@ This is the **CM3070 Final Project** (University of London, Iliass Jabali).
 
 TypeScript · Next.js · Vercel AI SDK · Anthropic Claude (Haiku/Sonnet/Opus) · Zod · Vitest
 
+## Monorepo
+
+Turborepo + pnpm workspaces. Packages live under `apps/*` and `packages/*`
+(bounded contexts under `packages/contexts/*`). Internal packages ship raw TS
+(no build step) and are referenced as `@hyrox/<name>` (`workspace:*`).
+
 ## Commands
 
-> The app is being scaffolded. Keep this list authoritative as scripts are added.
-
 ```bash
-npm install          # install dependencies
-npm run dev          # run Next.js dev server
-npm run build        # production build
-npm test             # run the full Vitest suite
-npm test -- <path>   # run a single test file
-npm test -- -t "<name>"   # run tests matching a name
-npm run lint         # lint
+pnpm install                              # install all workspace deps
+pnpm test                                 # turbo: test every package
+pnpm typecheck                            # turbo: tsc --noEmit every package
+pnpm lint                                 # turbo: eslint every package
+pnpm dev                                  # turbo: run dev servers
+
+pnpm --filter @hyrox/training test        # test one package
+pnpm --filter @hyrox/training test:watch  # watch mode
+pnpm --filter @hyrox/training exec vitest run src/path/to.test.ts   # single file
+
+# scaffold (see /scaffold-context skill)
+scripts/scaffold-hexagon.sh init          # one-time monorepo root
+scripts/scaffold-hexagon.sh context <name>  # new hexagonal bounded context
 ```
+
+The dependency rule is enforced by `@hyrox/config/eslint/hexagonal.js`: `domain/`
+imports nothing external, `application/` imports `domain/` only. `pnpm lint` fails CI on violation.
 
 ## Architecture (big picture)
 

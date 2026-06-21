@@ -1,0 +1,6 @@
+{
+  "comment": "Root config is intentionally standalone — per-package tsconfig extends @hyrox/config/tsconfig/base.json. Each package is the unit of typechecking.",
+  "compilerOptions": { "noEmit": true },
+  "files": [],
+  "exclude": ["node_modules", "**/dist", "**/.next"]
+}
