@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build output
+.next/
+out/
+dist/
+build/
+
+# Env / secrets — NEVER commit API keys (markers review this repo)
+.env
+.env.*
+!.env.example
+
+# Athlete data — personal/health data, keep OUT of git (ethics + consent)
+data/
+*.fit
+*.tcx
+/private/
+athlete-data/
+
+# Test / coverage
+coverage/
+.vitest/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Vercel
+.vercel
