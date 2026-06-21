@@ -2,11 +2,7 @@
 // a confidence, plus token usage for cost tracking. No HTTP/SDK types leak here.
 import type { SessionType } from '../../../domain/session-type';
 import type { RawSessionInput } from '../../dto/raw-session-input';
-
-export interface TokenUsage {
-  inputTokens: number;
-  outputTokens: number;
-}
+import type { TokenUsage } from './token-usage';
 
 export interface SessionClassification {
   id: string;

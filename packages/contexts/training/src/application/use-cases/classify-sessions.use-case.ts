@@ -1,5 +1,4 @@
-import { WorkoutSession } from '../../domain/workout-session';
-import type { CreateWorkoutSessionProps } from '../../domain/workout-session';
+import { buildWorkoutSessions } from '../mapping/build-workout-sessions';
 import type {
   ClassifySessions,
   ClassifySessionsInput,
@@ -18,23 +17,7 @@ export class ClassifySessionsUseCase implements ClassifySessions {
 
   async execute(input: ClassifySessionsInput): Promise<ClassifySessionsOutput> {
     const { classifications } = await this.classifier.classify(input.sessions);
-    const rawById = new Map(input.sessions.map((session) => [session.id, session]));
-
-    const workouts = classifications.map((classification) => {
-      const raw = rawById.get(classification.id);
-      if (!raw) {
-        throw new Error(`classifier returned an unknown session id: ${classification.id}`);
-      }
-      const props: CreateWorkoutSessionProps = {
-        id: raw.id,
-        date: raw.date,
-        type: classification.type,
-        durationSeconds: raw.durationSeconds,
-        ...(raw.distanceMeters !== undefined ? { distanceMeters: raw.distanceMeters } : {}),
-        ...(raw.averageHeartRate !== undefined ? { averageHeartRate: raw.averageHeartRate } : {}),
-      };
-      return WorkoutSession.create(props);
-    });
+    const workouts = buildWorkoutSessions(input.sessions, classifications);
 
     await this.sessions.saveAll(workouts);
 
