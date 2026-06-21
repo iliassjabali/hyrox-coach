@@ -8,3 +8,12 @@ export class ExampleNotFound extends DomainError {
     super(`Example not found: ${id}`);
   }
 }
+
+// --- real domain errors ---------------------------------------------------
+export class InvalidSessionType extends DomainError {
+  constructor(value: string) {
+    super(`Unknown session type: "${value}" (expected run | sled | burpees | mixed)`);
+  }
+}
+
+export class InvalidWorkoutSession extends DomainError {}
