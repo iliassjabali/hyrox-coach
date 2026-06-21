@@ -9,8 +9,9 @@ roadmap* see [`docs/plan.md`](./docs/plan.md).
 >
 > **Build status (2026-06-21):** Turborepo+pnpm monorepo scaffolded; `@hyrox/training`
 > bounded context live with the hexagonal layout and the dependency rule enforced by
-> ESLint. Domain modelling underway (TDD, 22 tests green): SessionType, WorkoutSession,
-> WeeklyPlan, PlanVerdict done; TrainingLoad + out-ports + use-cases next. Architecture: see
+> ESLint. TDD, 29 tests green: domain (SessionType, WorkoutSession, WeeklyPlan,
+> PlanVerdict, TRIMP) + first application slice (`ClassifySessions` use case with ports
+> & in-memory fakes). Next: GeneratePlan, CoachAthlete orchestrator. Architecture: see
 > [`docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md`](./docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md).
 
 ---
@@ -73,10 +74,11 @@ Domain types are pure TS (in `domain/`); **Zod validates only at the boundaries*
 - ✅ `WorkoutSession` — entity with factory invariants (id, duration, distance, HR)
 - ✅ `WeeklyPlan` — entity (Coach result, domain form) with planned-session invariants
 - ✅ `PlanVerdict` — VO (Critic result: accept/reject + reasons + fixes)
-- ⬜ `TrainingLoad` — VO/service: TRIMP, ACWR (needs athlete HR-profile params)
+- 🔨 `TrainingLoad` — TRIMP (Banister) done; ACWR next
 - ⬜ `ClassifierOutput` / `CoachOutput` / `CriticOutput` — Zod schemas at the LLM boundary
 
 ### 3.4 Orchestration
+- 🔨 Use cases + ports: `ClassifySessions` done (ClassifierLlm + SessionRepository ports, in-memory fakes); `GeneratePlan` / `CoachAthlete` next
 - ⬜ Pipeline runner: `Classifier → Coach → Critic`
 - ⬜ Schema validation + retry on invalid LLM output
 - ⬜ Exponential backoff on transient API errors

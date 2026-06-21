@@ -66,10 +66,10 @@
 | 1.0 | Monorepo scaffold + `@hyrox/training` hexagon + scaffold script/skill | — | 0.2 | ✅ |
 | 1.1 | Next.js 15 + TS + Tailwind skeleton, deploy to Vercel | 1 hr | 0.2 | ⬜ |
 | 1.2 | Install Vercel AI SDK + Anthropic SDK + Zod | 15 min | 1.1 | ⬜ |
-| 1.3 | Domain model: `SessionType` + `WorkoutSession` done (TDD); `WeeklyPlan`/`PlanVerdict` + LLM-boundary Zod schemas next | 1.5 hr | 1.2 | 🔨 |
+| 1.3 | Domain model: SessionType, WorkoutSession, WeeklyPlan, PlanVerdict, TRIMP done (TDD); LLM-boundary Zod schemas next | 1.5 hr | 1.2 | 🔨 |
 | 1.4 | Data parser: CSV → `WorkoutSession[]` (pace zones, HR zones, TRIMP, ACWR) | 3 hr | 1.3, 0.5 | ⬜ |
 | 1.5 | Vitest setup + first tests (domain) | 30 min | 1.4 | ✅ |
-| 1.6 | Classifier agent stub (hardcoded JSON), schema-validated | 1 hr | 1.3 | ⬜ |
+| 1.6 | Classifier: `ClassifierLlm` port + `ClassifySessions` use case + fake done; real Haiku adapter next | 1 hr | 1.3 | 🔨 |
 | 1.7 | Coach agent stub (hardcoded JSON), schema-validated | 1 hr | 1.3 | ⬜ |
 | 1.8 | Critic agent stub (hardcoded JSON), schema-validated | 1 hr | 1.3 | ⬜ |
 | 1.9 | Orchestrator skeleton: Classifier → Coach → Critic, with retries | 2 hr | 1.6-1.8 | ⬜ |
