@@ -17,3 +17,7 @@ export class InvalidSessionType extends DomainError {
 }
 
 export class InvalidWorkoutSession extends DomainError {}
+
+export class InvalidPlanVerdict extends DomainError {}
+
+export class InvalidWeeklyPlan extends DomainError {}
