@@ -6,6 +6,11 @@ single source of truth for *what the system does*. For *how to work in the repo*
 roadmap* see [`docs/plan.md`](./docs/plan.md).
 
 > Status legend — ✅ done · 🔨 in progress · ⬜ planned. Update as features land.
+>
+> **Build status (2026-06-21):** Turborepo+pnpm monorepo scaffolded; `@hyrox/training`
+> bounded context live with the hexagonal layout and the dependency rule enforced by
+> ESLint. Domain modelling underway (TDD). Architecture: see
+> [`docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md`](./docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md).
 
 ---
 
@@ -60,11 +65,15 @@ distinct roles). Document any model swap and its justification here.
 - ⬜ Training monotony
 - ⬜ Fitness / fatigue (Banister impulse-response) model
 
-### 3.3 Schemas (Zod — the contracts between agents)
-- ⬜ `WorkoutSession` — one enriched training session
-- ⬜ `ClassifierOutput` — per-session Hyrox-type labels + confidence
-- ⬜ `CoachOutput` — structured weekly plan
-- ⬜ `CriticOutput` — verdict (accept/reject) + reasons + suggested fixes
+### 3.3 Domain model + contracts
+Domain types are pure TS (in `domain/`); **Zod validates only at the boundaries**
+(tRPC input, LLM output) and maps into these.
+- ✅ `SessionType` — VO: run | sled | burpees | mixed (case-insensitive)
+- ✅ `WorkoutSession` — entity with factory invariants (id, duration, distance, HR)
+- ⬜ `TrainingLoad` — VO/service: TRIMP, ACWR
+- ⬜ `WeeklyPlan` — entity (Coach result, domain form)
+- ⬜ `PlanVerdict` — VO (Critic result: accept/reject + reasons + fixes)
+- ⬜ `ClassifierOutput` / `CoachOutput` / `CriticOutput` — Zod schemas at the LLM boundary
 
 ### 3.4 Orchestration
 - ⬜ Pipeline runner: `Classifier → Coach → Critic`

@@ -55,13 +55,20 @@
 
 ## Phase 1 — Foundation: prototype harness (W3-W4)
 
+> **Architecture update (2026-06-21):** moved from a flat Next.js app to a
+> **Turborepo + pnpm monorepo with a hexagonal `@hyrox/training` bounded context**
+> (Drizzle, tRPC). Domain types are pure TS; Zod is used only at boundaries.
+> See `docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md`. Some
+> task wording below predates this and is being re-mapped onto the layered structure.
+
 | # | Task | Effort | Dependency | Status |
 |---|---|---|---|---|
+| 1.0 | Monorepo scaffold + `@hyrox/training` hexagon + scaffold script/skill | — | 0.2 | ✅ |
 | 1.1 | Next.js 15 + TS + Tailwind skeleton, deploy to Vercel | 1 hr | 0.2 | ⬜ |
 | 1.2 | Install Vercel AI SDK + Anthropic SDK + Zod | 15 min | 1.1 | ⬜ |
-| 1.3 | Define Zod schemas: `WorkoutSession`, `ClassifierOutput`, `CoachOutput`, `CriticOutput` | 1.5 hr | 1.2 | ⬜ |
+| 1.3 | Domain model: `SessionType` + `WorkoutSession` done (TDD); `WeeklyPlan`/`PlanVerdict` + LLM-boundary Zod schemas next | 1.5 hr | 1.2 | 🔨 |
 | 1.4 | Data parser: CSV → `WorkoutSession[]` (pace zones, HR zones, TRIMP, ACWR) | 3 hr | 1.3, 0.5 | ⬜ |
-| 1.5 | Vitest setup + first test on data parser | 30 min | 1.4 | ⬜ |
+| 1.5 | Vitest setup + first tests (domain) | 30 min | 1.4 | ✅ |
 | 1.6 | Classifier agent stub (hardcoded JSON), schema-validated | 1 hr | 1.3 | ⬜ |
 | 1.7 | Coach agent stub (hardcoded JSON), schema-validated | 1 hr | 1.3 | ⬜ |
 | 1.8 | Critic agent stub (hardcoded JSON), schema-validated | 1 hr | 1.3 | ⬜ |
