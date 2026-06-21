@@ -18,8 +18,8 @@ architecture (brainstormed + spec'd): a Turborepo + pnpm **monorepo** with a **h
 adapters), Drizzle for persistence, tRPC as the driving adapter, the three Claude models
 (Haiku/Opus/Sonnet) as driven adapters behind ports. Wrote a reusable scaffold script
 (`scripts/scaffold-hexagon.sh`) + a `/scaffold-context` skill. Began the domain layer with
-TDD: `SessionType` and `WorkoutSession` (red → green, 12 tests passing, dependency rule
-enforced by ESLint).
+TDD: `SessionType`, `WorkoutSession`, `WeeklyPlan`, and `PlanVerdict` (red → green,
+22 tests passing, dependency rule enforced by ESLint).
 
 _Blockers / surprises:_ The `.gitignore` `out/` pattern (meant for Next.js build output)
 silently ignored the `application/ports/out/` directory — caught it before it caused a
@@ -29,8 +29,9 @@ _Lessons / decisions:_ In hexagonal TS, the "Zod schemas as contracts" idea from
 proposal becomes **domain types**, with Zod validating only at the boundaries (tRPC input,
 LLM output). Keeps the domain pure and the swap test intact.
 
-_Next week:_ Finish the domain VOs (`TrainingLoad`/TRIMP, `WeeklyPlan`, `PlanVerdict`),
-define the out-ports + in-memory fakes, then TDD the use cases (`ClassifySessions`,
-`GeneratePlan`, `CoachAthlete` orchestrator); scaffold `apps/web` + `@hyrox/db` + `@hyrox/trpc`.
+_Next week:_ Add `TrainingLoad`/TRIMP (needs an athlete HR-profile decision), define the
+out-ports + in-memory fakes, then TDD the use cases (`ClassifySessions`, `GeneratePlan`,
+`CoachAthlete` orchestrator); scaffold `apps/web` + `@hyrox/db` + `@hyrox/trpc`; delete the
+generated `Example` placeholder once real ports/use-cases exist.
 
 ---

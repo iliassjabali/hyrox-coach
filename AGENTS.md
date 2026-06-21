@@ -9,7 +9,8 @@ roadmap* see [`docs/plan.md`](./docs/plan.md).
 >
 > **Build status (2026-06-21):** Turborepo+pnpm monorepo scaffolded; `@hyrox/training`
 > bounded context live with the hexagonal layout and the dependency rule enforced by
-> ESLint. Domain modelling underway (TDD). Architecture: see
+> ESLint. Domain modelling underway (TDD, 22 tests green): SessionType, WorkoutSession,
+> WeeklyPlan, PlanVerdict done; TrainingLoad + out-ports + use-cases next. Architecture: see
 > [`docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md`](./docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md).
 
 ---
@@ -70,9 +71,9 @@ Domain types are pure TS (in `domain/`); **Zod validates only at the boundaries*
 (tRPC input, LLM output) and maps into these.
 - ✅ `SessionType` — VO: run | sled | burpees | mixed (case-insensitive)
 - ✅ `WorkoutSession` — entity with factory invariants (id, duration, distance, HR)
-- ⬜ `TrainingLoad` — VO/service: TRIMP, ACWR
-- ⬜ `WeeklyPlan` — entity (Coach result, domain form)
-- ⬜ `PlanVerdict` — VO (Critic result: accept/reject + reasons + fixes)
+- ✅ `WeeklyPlan` — entity (Coach result, domain form) with planned-session invariants
+- ✅ `PlanVerdict` — VO (Critic result: accept/reject + reasons + fixes)
+- ⬜ `TrainingLoad` — VO/service: TRIMP, ACWR (needs athlete HR-profile params)
 - ⬜ `ClassifierOutput` / `CoachOutput` / `CriticOutput` — Zod schemas at the LLM boundary
 
 ### 3.4 Orchestration
