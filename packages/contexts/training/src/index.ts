@@ -25,3 +25,6 @@ export type * from './application/ports/out/clock.port';
 // use cases
 export { ClassifySessionsUseCase } from './application/use-cases/classify-sessions.use-case';
 export { CoachAthleteUseCase } from './application/use-cases/coach-athlete.use-case';
+
+// evaluation (objective metrics)
+export { accuracy, confusionMatrix, consistency, type Labelled } from './evaluation/classifier-metrics';
