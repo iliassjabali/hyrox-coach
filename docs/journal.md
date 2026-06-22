@@ -18,10 +18,15 @@ architecture (brainstormed + spec'd): a Turborepo + pnpm **monorepo** with a **h
 adapters), Drizzle for persistence, tRPC as the driving adapter, the three Claude models
 (Haiku/Opus/Sonnet) as driven adapters behind ports. Wrote a reusable scaffold script
 (`scripts/scaffold-hexagon.sh`) + a `/scaffold-context` skill. Began the domain layer with
-TDD: `SessionType`, `WorkoutSession`, `WeeklyPlan`, `PlanVerdict`, and `TrainingLoad`
-(Banister TRIMP), then the first application slice — the `ClassifySessions` use case with
-its `ClassifierLlm`/`SessionRepository` ports and in-memory fakes (red → green, 29 tests
-passing, dependency rule enforced by ESLint).
+TDD throughout: domain (`SessionType`, `WorkoutSession`, `WeeklyPlan`, `PlanVerdict`,
+Banister `TRIMP`), the application layer (`ClassifySessions` + the `CoachAthlete`
+orchestrator with classify→coach→critic, retry on critic rejection, and token-cost
+tracking), and the infrastructure adapters (Strava CSV parser, `SystemClock`, the three
+Anthropic Haiku/Opus/Sonnet adapters behind an injectable seam, and Drizzle+libSQL
+repositories). Wired it together: `@hyrox/trpc` (router + composition root) and a Next.js
+`apps/web` with a coaching demo page and safety disclaimer. **48 tests green** (red→green
+each), 4 typecheck + 3 lint tasks pass, `next build` succeeds, dependency rule enforced by
+ESLint.
 
 _Blockers / surprises:_ The `.gitignore` `out/` pattern (meant for Next.js build output)
 silently ignored the `application/ports/out/` directory — caught it before it caused a
@@ -31,9 +36,9 @@ _Lessons / decisions:_ In hexagonal TS, the "Zod schemas as contracts" idea from
 proposal becomes **domain types**, with Zod validating only at the boundaries (tRPC input,
 LLM output). Keeps the domain pure and the swap test intact.
 
-_Next week:_ TDD the remaining use cases (`GeneratePlan`, `CoachAthlete` orchestrator with
-retry + critic-rejection), add ACWR to `TrainingLoad`, then scaffold `apps/web` +
-`@hyrox/db` + `@hyrox/trpc` and wire the Anthropic adapters; delete the generated `Example`
-placeholder once the real composition is in place.
+_Next week:_ Run the system against real Strava data with an API key; add ACWR + the
+fitness/fatigue model to `TrainingLoad`; build the labelled set + the evaluation harness
+(classifier accuracy, ablation with/without Critic, consistency) — the graded core; richer
+plan UI + CSV upload; deploy to Vercel.
 
 ---

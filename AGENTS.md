@@ -7,11 +7,11 @@ roadmap* see [`docs/plan.md`](./docs/plan.md).
 
 > Status legend — ✅ done · 🔨 in progress · ⬜ planned. Update as features land.
 >
-> **Build status (2026-06-21):** Turborepo+pnpm monorepo scaffolded; `@hyrox/training`
-> bounded context live with the hexagonal layout and the dependency rule enforced by
-> ESLint. TDD, 29 tests green: domain (SessionType, WorkoutSession, WeeklyPlan,
-> PlanVerdict, TRIMP) + first application slice (`ClassifySessions` use case with ports
-> & in-memory fakes). Next: GeneratePlan, CoachAthlete orchestrator. Architecture: see
+> **Build status (2026-06-22):** Full vertical slice working end-to-end. Turborepo+pnpm
+> monorepo; hexagonal `@hyrox/training` context (domain → application → infrastructure),
+> `@hyrox/db` (Drizzle+libSQL), `@hyrox/trpc` (driving adapter + composition root),
+> `apps/web` (Next.js, `next build` green). TDD, **48 tests green** (45 training + 3 trpc),
+> 4 typecheck + 3 lint tasks pass. Architecture: see
 > [`docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md`](./docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md).
 
 ---
@@ -54,7 +54,7 @@ distinct roles). Document any model swap and its justification here.
 ## 3. Feature catalogue
 
 ### 3.1 Data ingestion
-- ⬜ CSV import (Strava export → `WorkoutSession[]`)
+- ✅ CSV import (`parseStravaCsv` → `RawSessionInput[]`)
 - ⬜ Garmin import (FIT/CSV)
 - ⬜ Strava OAuth (replaces manual CSV upload) — Phase 4
 - ⬜ Garmin Connect integration — Phase 4
@@ -78,24 +78,23 @@ Domain types are pure TS (in `domain/`); **Zod validates only at the boundaries*
 - ⬜ `ClassifierOutput` / `CoachOutput` / `CriticOutput` — Zod schemas at the LLM boundary
 
 ### 3.4 Orchestration
-- 🔨 Use cases + ports: `ClassifySessions` done (ClassifierLlm + SessionRepository ports, in-memory fakes); `GeneratePlan` / `CoachAthlete` next
-- ⬜ Pipeline runner: `Classifier → Coach → Critic`
-- ⬜ Schema validation + retry on invalid LLM output
-- ⬜ Exponential backoff on transient API errors
-- ⬜ Conflict resolution when Critic rejects Coach output
-- ⬜ Per-request cost tracking (logged to DB)
+- ✅ `CoachAthlete` use case: pipeline `Classify → Coach → Critic`
+- ✅ Schema validation at the LLM boundary (zod in adapters → domain)
+- ✅ Transient API retry/backoff (in the LLM adapter, behind the port)
+- ✅ Conflict resolution: re-coach with critic feedback, up to maxAttempts
+- ✅ Per-request token cost aggregated + recorded to `RunLog`
 
 ### 3.5 Persistence
 - ⬜ Athlete profile store
-- ⬜ Session history store
-- ⬜ Run/cost log
-- ⬜ SQLite (dev) → Postgres (deploy) — Phase 4
+- ✅ Session history store (`DrizzleSessionRepository`)
+- ✅ Run/cost log (`DrizzleRunLog`)
+- ✅ SQLite/libSQL (dev) via `@hyrox/db`; Postgres swap is a dialect change behind the port
 
 ### 3.6 Frontend (Next.js)
-- ⬜ CSV upload → see agent outputs
-- ⬜ Weekly plan render (from `CoachOutput`)
-- ⬜ Session history view
-- ⬜ Visible safety disclaimer ("training aid, not medical advice")
+- ✅ Demo page: generate a weekly plan, shows acceptance/attempts/cost
+- ✅ Visible safety disclaimer ("training aid, not medical advice")
+- ✅ tRPC route handler wired to the composition root
+- ⬜ CSV upload UI · weekly-plan rich render · session history view
 
 ### 3.7 Evaluation harness *(the graded core — lead with objective metrics)*
 - ⬜ Classifier accuracy + confusion matrix on a hand-labelled set (20 → 50+ sessions)

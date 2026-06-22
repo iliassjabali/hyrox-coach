@@ -31,6 +31,8 @@ pnpm test                                 # turbo: test every package
 pnpm typecheck                            # turbo: tsc --noEmit every package
 pnpm lint                                 # turbo: eslint every package
 pnpm dev                                  # turbo: run dev servers
+pnpm --filter @hyrox/web dev              # run the Next.js app (needs ANTHROPIC_API_KEY for live LLM calls)
+pnpm --filter @hyrox/web build           # production build of the web app
 
 pnpm --filter @hyrox/training test        # test one package
 pnpm --filter @hyrox/training test:watch  # watch mode

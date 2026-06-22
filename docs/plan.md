@@ -64,19 +64,19 @@
 | # | Task | Effort | Dependency | Status |
 |---|---|---|---|---|
 | 1.0 | Monorepo scaffold + `@hyrox/training` hexagon + scaffold script/skill | — | 0.2 | ✅ |
-| 1.1 | Next.js 15 + TS + Tailwind skeleton, deploy to Vercel | 1 hr | 0.2 | ⬜ |
-| 1.2 | Install Vercel AI SDK + Anthropic SDK + Zod | 15 min | 1.1 | ⬜ |
+| 1.1 | Next.js app (`apps/web`) builds with tRPC handler + demo page; Tailwind + Vercel deploy still TODO | 1 hr | 0.2 | 🔨 |
+| 1.2 | Vercel AI SDK + @ai-sdk/anthropic + Zod installed | 15 min | 1.1 | ✅ |
 | 1.3 | Domain model: SessionType, WorkoutSession, WeeklyPlan, PlanVerdict, TRIMP done (TDD); LLM-boundary Zod schemas next | 1.5 hr | 1.2 | 🔨 |
-| 1.4 | Data parser: CSV → `WorkoutSession[]` (pace zones, HR zones, TRIMP, ACWR) | 3 hr | 1.3, 0.5 | ⬜ |
+| 1.4 | Strava CSV parser → `RawSessionInput[]` done; pace/HR zones + ACWR still TODO | 3 hr | 1.3, 0.5 | 🔨 |
 | 1.5 | Vitest setup + first tests (domain) | 30 min | 1.4 | ✅ |
-| 1.6 | Classifier: `ClassifierLlm` port + `ClassifySessions` use case + fake done; real Haiku adapter next | 1 hr | 1.3 | 🔨 |
-| 1.7 | Coach agent stub (hardcoded JSON), schema-validated | 1 hr | 1.3 | ⬜ |
-| 1.8 | Critic agent stub (hardcoded JSON), schema-validated | 1 hr | 1.3 | ⬜ |
-| 1.9 | Orchestrator skeleton: Classifier → Coach → Critic, with retries | 2 hr | 1.6-1.8 | ⬜ |
-| 1.10 | Replace Classifier stub with real Claude Haiku call | 1 hr | 1.9 | ⬜ |
-| 1.11 | Replace Coach stub with real Claude Opus call | 1 hr | 1.9 | ⬜ |
-| 1.12 | Replace Critic stub with real Claude Sonnet call | 1 hr | 1.9 | ⬜ |
-| 1.13 | Simple Next.js page: upload CSV, see agent outputs | 2 hr | 1.10-1.12 | ⬜ |
+| 1.6 | Classifier: `ClassifierLlm` port + `ClassifySessions` use case + Anthropic Haiku adapter | 1 hr | 1.3 | ✅ |
+| 1.7 | Coach: `CoachLlm` port + Anthropic Opus adapter | 1 hr | 1.3 | ✅ |
+| 1.8 | Critic: `CriticLlm` port + Anthropic Sonnet adapter | 1 hr | 1.3 | ✅ |
+| 1.9 | `CoachAthlete` orchestrator: Classify → Coach → Critic with retry + critic-rejection + cost | 2 hr | 1.6-1.8 | ✅ |
+| 1.10 | Real Claude Haiku call (AnthropicClassifierAdapter via AI SDK) | 1 hr | 1.9 | ✅ |
+| 1.11 | Real Claude Opus call (AnthropicCoachAdapter) | 1 hr | 1.9 | ✅ |
+| 1.12 | Real Claude Sonnet call (AnthropicCriticAdapter) | 1 hr | 1.9 | ✅ |
+| 1.13 | Next.js page: generate plan from sample data, see agent output + cost | 2 hr | 1.10-1.12 | ✅ |
 | 1.14 | Manually label 20 sessions by Hyrox-relevant type (run, sled, burpees, mixed) | 1 hr | 0.5 | ⬜ |
 | 1.15 | Eval script: classifier accuracy + confusion matrix on labelled set | 2 hr | 1.10, 1.14 | ⬜ |
 | 1.16 | Project journal entry W4 | 15 min | — | ⬜ |
