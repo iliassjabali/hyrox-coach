@@ -1,25 +1,20 @@
 {
-  "name": "@hyrox/training",
+  "name": "@hyrox/trpc",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./testing": "./src/testing/index.ts",
-    "./infrastructure": "./src/infrastructure/index.ts",
-    "./composition": "./training.composition.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.0",
     "@hyrox/db": "workspace:*",
-    "ai": "^5.0.0",
-    "drizzle-orm": "^0.38.0",
+    "@hyrox/training": "workspace:*",
+    "@trpc/server": "^11.0.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
