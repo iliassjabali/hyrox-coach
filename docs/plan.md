@@ -78,7 +78,7 @@
 | 1.12 | Real Claude Sonnet call (AnthropicCriticAdapter) | 1 hr | 1.9 | ✅ |
 | 1.13 | Next.js page: generate plan from sample data, see agent output + cost | 2 hr | 1.10-1.12 | ✅ |
 | 1.14 | Manually label 20 sessions by Hyrox-relevant type (run, sled, burpees, mixed) | 1 hr | 0.5 | ⬜ |
-| 1.15 | Eval script: classifier accuracy + confusion matrix on labelled set | 2 hr | 1.10, 1.14 | ⬜ |
+| 1.15 | Eval metrics: `accuracy` + `confusionMatrix` + `consistency` implemented (TDD); needs labelled set to run | 2 hr | 1.10, 1.14 | 🔨 |
 | 1.16 | Project journal entry W4 | 15 min | — | ⬜ |
 
 ---

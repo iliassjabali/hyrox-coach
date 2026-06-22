@@ -10,8 +10,8 @@ roadmap* see [`docs/plan.md`](./docs/plan.md).
 > **Build status (2026-06-22):** Full vertical slice working end-to-end. Turborepo+pnpm
 > monorepo; hexagonal `@hyrox/training` context (domain → application → infrastructure),
 > `@hyrox/db` (Drizzle+libSQL), `@hyrox/trpc` (driving adapter + composition root),
-> `apps/web` (Next.js, `next build` green). TDD, **48 tests green** (45 training + 3 trpc),
-> 4 typecheck + 3 lint tasks pass. Architecture: see
+> `apps/web` (Next.js, `next build` green), plus objective-evaluation metrics. TDD,
+> **54 tests green** (51 training + 3 trpc), 4 typecheck + 3 lint tasks pass. Architecture: see
 > [`docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md`](./docs/superpowers/specs/2026-06-21-trpc-monorepo-hexagonal-design.md).
 
 ---
@@ -97,11 +97,12 @@ Domain types are pure TS (in `domain/`); **Zod validates only at the boundaries*
 - ⬜ CSV upload UI · weekly-plan rich render · session history view
 
 ### 3.7 Evaluation harness *(the graded core — lead with objective metrics)*
-- ⬜ Classifier accuracy + confusion matrix on a hand-labelled set (20 → 50+ sessions)
+- ✅ Classifier accuracy + confusion matrix (`accuracy`, `confusionMatrix`) — needs labelled data to run
+- ✅ Consistency metric (`consistency`: modal-run fraction)
+- ✅ Token cost recorded per run (`RunLog`)
 - ⬜ Ablation: same input with/without Critic, compare outputs
-- ⬜ Consistency: same input run ×5, measure output variance
 - ⬜ Prompt-variant ablation: 3 Coach prompt variants compared
-- ⬜ Cost/latency reporting per agent and per run
+- ⬜ Latency reporting per agent
 
 ### 3.8 Safety, ethics & study (Phase 5)
 - ⬜ Informed-consent form
