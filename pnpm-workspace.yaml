@@ -4,3 +4,4 @@ packages:
   - "packages/contexts/*"
 allowBuilds:
   esbuild: true
+  sharp: true

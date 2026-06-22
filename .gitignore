@@ -27,6 +27,13 @@ athlete-data/
 coverage/
 .vitest/
 
+# TypeScript incremental
+*.tsbuildinfo
+
+# Local SQLite
+*.db
+*.db-journal
+
 # Logs
 *.log
 npm-debug.log*
