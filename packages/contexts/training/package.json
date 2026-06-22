@@ -16,7 +16,9 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.0",
+    "@hyrox/db": "workspace:*",
     "ai": "^5.0.0",
+    "drizzle-orm": "^0.38.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {

@@ -1,0 +1,20 @@
+{
+  "name": "@hyrox/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "drizzle-orm": "^0.38.0"
+  },
+  "devDependencies": {
+    "@hyrox/config": "workspace:*"
+  }
+}
