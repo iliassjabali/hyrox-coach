@@ -33,9 +33,17 @@ export class CoachAthleteUseCase implements CoachAthlete {
   async execute(input: CoachAthleteInput): Promise<CoachAthleteOutput> {
     const maxAttempts = Math.max(1, input.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
 
+    const progress = input.onProgress ?? (() => {});
+
     const classification = await this.classifier.classify(input.sessions);
     const workouts = buildWorkoutSessions(input.sessions, classification.classifications);
     await this.sessions.saveAll(workouts);
+
+    const byType: Record<string, number> = {};
+    for (const c of classification.classifications) {
+      byType[c.type.value] = (byType[c.type.value] ?? 0) + 1;
+    }
+    progress({ stage: 'classified', byType });
 
     const cost: TokenUsage = { ...classification.usage };
     let attempts = 0;
@@ -51,13 +59,21 @@ export class CoachAthleteUseCase implements CoachAthlete {
         weekStartingOn: input.weekStartingOn,
         ...(feedback.length > 0 ? { criticFeedback: feedback } : {}),
       };
+      progress({ stage: 'coaching', attempt: attempts });
       const coached = await this.coach.generatePlan(coachInput);
       plan = coached.plan;
       add(cost, coached.usage);
 
+      progress({ stage: 'reviewing', attempt: attempts });
       const reviewed = await this.critic.review({ plan, sessions: workouts });
       verdict = reviewed.verdict;
       add(cost, reviewed.usage);
+      progress({
+        stage: 'critic',
+        attempt: attempts,
+        accepted: verdict.isAccepted,
+        reasons: [...verdict.reasons],
+      });
 
       if (verdict.isAccepted) break;
       feedback = [...verdict.reasons, ...verdict.suggestedFixes];

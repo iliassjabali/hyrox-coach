@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CoachAthleteUseCase } from './coach-athlete.use-case';
+import type { CoachProgress } from '../ports/in/coach-athlete.port';
 import { InMemorySessionRepository } from '../../testing/in-memory-session.repository';
 import { InMemoryRunLog } from '../../testing/in-memory-run-log';
 import { FakeClassifierLlm } from '../../testing/fake-classifier-llm';
@@ -92,5 +93,33 @@ describe('CoachAthleteUseCase', () => {
 
     expect(result.cost).toEqual({ inputTokens: 130, outputTokens: 60 });
     expect(d.runLog.entries[0]!.at.toISOString()).toBe('2026-06-05T10:00:00.000Z');
+  });
+
+  it('emits stage-progress events for classify, each coach attempt, and each critic verdict', async () => {
+    const coach = new FakeCoachLlm(planWith('v1'));
+    const critic = new FakeCriticLlm([
+      PlanVerdict.rejected(['too much volume'], ['cut one session']),
+      PlanVerdict.accepted(),
+    ]);
+    const d = makeDeps(coach, critic);
+    const useCase = new CoachAthleteUseCase(d.classifier, d.coach, d.critic, d.repo, d.runLog, d.clock);
+    const events: CoachProgress[] = [];
+
+    await useCase.execute({ sessions: raw, weekStartingOn, onProgress: (e) => events.push(e) });
+
+    expect(events.map((e) => e.stage)).toEqual([
+      'classified',
+      'coaching',
+      'reviewing',
+      'critic',
+      'coaching',
+      'reviewing',
+      'critic',
+    ]);
+    expect(events[0]).toMatchObject({ stage: 'classified', byType: { run: 1 } });
+    expect(events[1]).toMatchObject({ stage: 'coaching', attempt: 1 });
+    expect(events[2]).toMatchObject({ stage: 'reviewing', attempt: 1 });
+    expect(events[3]).toMatchObject({ stage: 'critic', attempt: 1, accepted: false });
+    expect(events[6]).toMatchObject({ stage: 'critic', attempt: 2, accepted: true });
   });
 });

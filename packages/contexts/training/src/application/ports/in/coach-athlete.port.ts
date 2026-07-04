@@ -2,10 +2,19 @@
 import type { RawSessionInput } from '../../dto/raw-session-input';
 import type { TokenUsage } from '../out/token-usage';
 
+// Stage-progress events emitted as the orchestration runs, so a caller (e.g. a
+// streaming UI) can show live progress through Classify -> Coach -> Critic.
+export type CoachProgress =
+  | { stage: 'classified'; byType: Record<string, number> }
+  | { stage: 'coaching'; attempt: number }
+  | { stage: 'reviewing'; attempt: number }
+  | { stage: 'critic'; attempt: number; accepted: boolean; reasons: string[] };
+
 export interface CoachAthleteInput {
   sessions: RawSessionInput[];
   weekStartingOn: Date;
   maxAttempts?: number;
+  onProgress?: (event: CoachProgress) => void;
 }
 
 export interface PlannedSessionDto {
