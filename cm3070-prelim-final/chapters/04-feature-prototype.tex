@@ -1,0 +1,103 @@
+% ==========================================================================
+% Chapter 4: Feature Prototype (max 1500 words)
+% Per Matt's webinar guidance: black-box approach, end-to-end orchestration,
+% hardcoded data acceptable, acknowledge limitations honestly.
+% ==========================================================================
+
+\chapter{Prototype Implementation}
+\label{ch:prototype}
+
+\section{Prototype aim}
+
+The aim of the feature prototype is to demonstrate that the project's central technical feature --- orchestrating three distinct pre-trained Claude models behind schema-validated agent roles --- is feasible end-to-end. It is not the final system; it provides concrete evidence on three questions:
+
+\begin{enumerate}
+  \item Can three Claude models in three distinct prompted roles be wired together so that each output is schema-valid and reliably consumable by the next agent?
+  \item Does the Classifier perform usefully better than chance on Strava-derived session data?
+  \item Does adding the Critic produce measurably different (and ideally safer) Coach outputs?
+\end{enumerate}
+
+These map directly to the three architectural commitments of Chapter~\ref{ch:design}: orchestration discipline, role specialisation, and structured critique.
+
+\section{Prototype scope}
+
+Following the guidance to treat unimplemented components as black boxes and demonstrate the critical-path feature, the prototype includes:
+
+\begin{itemize}
+  \item A CSV-based ingestion path for Strava and Garmin exports.
+  \item A feature engineering layer computing a Banister TRIMP training-load score per session. Pace/heart-rate zones and the acute-to-chronic workload ratio (ACWR) are specified in the design (Chapter~\ref{ch:design}) and are the next increment.
+  \item Live calls to Claude Haiku, Sonnet, and Opus via the Vercel AI SDK (routed through the Vercel AI Gateway), in three distinct prompted roles.
+  \item An orchestrator threading Classifier $\to$ Coach $\to$ Critic, with Zod validation and bounded retries.
+  \item A minimal Next.js page that surfaces the resulting plan and the Critic's verdict.
+  \item A Vitest evaluation harness that runs the metrics below.
+\end{itemize}
+
+It deliberately excludes OAuth ingestion, the user-study apparatus, the Postgres store, and final UI polish --- all on the work plan, none needed to demonstrate the critical-path feature.
+
+\section{Implementation status}
+
+The orchestrator is a single TypeScript use case threading the three agents. Each agent is a thin wrapper around a model call --- a role system prompt, a structured input, and a Zod schema for the response --- and schema-validation failures are retried up to three times per agent. A complete run takes roughly 4--12 seconds, with the Opus Coach call dominating latency.
+
+The feature engineering implemented so far is the Banister TRIMP score, written in pure TypeScript and unit-tested in Vitest, computed from session duration and heart-rate reserve. ACWR (the ratio of acute 7-day to chronic 28-day load) and pace/heart-rate zones are specified in the design and are the immediate next increment. Unit tests cover the TRIMP computation and the CSV ingestion edge cases (missing optional fields, invalid dates, empty identifiers).
+
+A minimal Next.js page runs the pipeline and renders the resulting plan with the Critic's verdict; presentation polish is deliberately deferred so effort stays on the orchestrator and the schemas.
+
+\section{Preliminary evaluation}
+
+Four evaluation activities are defined, each a small runnable script (\texttt{pnpm eval:*}) built on the metric functions above. To keep the harness reproducible without exposing sensitive athlete data (held under consent, gitignored, and not committed), the runs use a small \emph{illustrative synthetic} set of 16 sessions; the figures are evidence that the methodology is operationalisable, not final athlete-derived results, and will be re-measured on a real multi-athlete set. A second caveat applies to the last three activities: the model gateway's available tier granted Claude Haiku but not the paid Opus and Sonnet models, so while classifier accuracy uses the intended Haiku tier, the consistency, ablation, and prompt-variant runs substitute Haiku for the Coach and Critic roles. This is a deliberate zero-cost feasibility substitution that exercises the full orchestration mechanism; the intended tiers are restored for the final report, and the gap is itself a planned result.
+
+\subsection{Classifier accuracy}
+
+A set of 16 labelled sessions served as ground truth, each tagged with one of the four prototype labels (\texttt{run}, \texttt{sled}, \texttt{burpees}, \texttt{mixed}). Each was passed through the Classifier (Claude Haiku) and the prediction compared against the ground-truth label, giving an overall accuracy and a confusion matrix (Table~\ref{tab:confusion}). Overall accuracy was \textbf{62.5\%} (10 of 16).
+
+\begin{table}[H]
+\centering
+\caption{Classifier confusion matrix on the 16-session illustrative set (rows = ground truth, columns = predicted).}
+\label{tab:confusion}
+\begin{tabular}{lrrrr}
+\toprule
+ & \multicolumn{4}{c}{\textbf{Predicted}} \\
+\cmidrule(l){2-5}
+\textbf{Actual} & run & sled & burpees & mixed \\
+\midrule
+run     & \textbf{6} & 0 & 0 & 0 \\
+sled    & 0 & \textbf{0} & 4 & 0 \\
+burpees & 0 & 0 & \textbf{3} & 0 \\
+mixed   & 0 & 2 & 0 & \textbf{1} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The matrix is informative beyond the headline figure: the Classifier handles \texttt{run} and \texttt{burpees} perfectly but collapses every \texttt{sled} session into \texttt{burpees} and splits \texttt{mixed}. This is an artefact of the synthetic set, whose \texttt{sled} and \texttt{burpees} rows deliberately share one observable signature (short duration, high heart rate, no distance), leaving the model nothing to separate them on --- the label-ambiguity the workout-classification literature describes. The Classifier is strong where modalities are observably distinct and weak where the features are uninformative; the planned real labelled set, with genuine pace, distance, and heart-rate structure, should separate these classes far better, and quantifying that gap is itself a result for the final report.
+
+\subsection{Output consistency}
+
+The full pipeline was run five times on the fixed history. One run failed Coach schema validation outright and was surfaced as an explicit error rather than a silently degraded plan; of the four completed runs, the modal day-to-session-type signature recurred in only one (25\%), the stricter signature including session focus likewise in one of four, and all four produced distinct plans. Consistency in this configuration is therefore low --- the same input rarely yields the same plan twice. It is reported as a first-class metric because the orchestration literature (Chapter~\ref{ch:lit-review}) rarely measures it, yet stability of advice matters more than peak quality for user trust: an athlete who gets a meaningfully different plan on every run will stop using the system.
+
+\subsection{Critic ablation}
+
+The pipeline was run six times on the same history; two runs failed Coach schema validation, leaving four completed runs. The ablation compares the Coach's first draft --- the output a Critic-less pipeline would surface --- against the Critic-filtered result. The Critic intervened on every completed draft (four of four): it rejected 50\% outright and forced a revision on the other 50\%, taking three attempts on average before accepting a plan or exhausting the retry budget. No Coach draft passed the safety-and-plausibility review unchanged, which is direct evidence that the Critic does measurable work rather than merely adding latency. The intervention rate is high partly because the feasibility run substitutes a weaker Coach; the more informative final-report measurement is how far it falls once the full-capability Opus Coach is restored.
+
+\subsection{Prompt-variant comparison}
+
+Three Coach prompt variants were tested on identical inputs --- minimal, the default Hyrox-specific variant, and a safety-augmented variant --- with four runs each. In the feasibility configuration the Critic approved none of the plans from any variant (0\% across all three), so this run yields no signal to discriminate between prompts: with a weak Coach and a strict Critic, every plan is rejected regardless of wording. It is reported honestly as a null result. What it establishes is that the comparison is fully operational --- the Coach's system prompt is injectable, three variants are wired, and approval rate is captured per variant. Re-running on the true Opus and Sonnet tiers, where approval rates should separate the variants, is the prompt-variant ablation planned for the final evaluation.
+
+\section{Evaluation methodology and background work}
+
+The methodology is adapted from the agent-evaluation literature of Chapter~\ref{ch:lit-review}: confusion-matrix metrics from the classification literature; a consistency metric targeting the stability gap that orchestration work rarely measures; and component ablations (Critic on/off, prompt variants) in the style of Reflexion~\cite{shinn2023reflexion} and Multi-Agent Debate~\cite{du2023debate}, where ablating components is the standard way to attribute performance to architectural choices. Per supervisory guidance the user study is a supplementary signal only; the objective metrics above carry the evaluation argument.
+
+\section{Limitations and planned improvements}
+
+\emph{Sample size and synthetic data.} Results are based on a 16-session synthetic set; the final report will use a real labelled set of 50 or more sessions across multiple athletes from the user study.
+
+\emph{No OAuth ingestion.} The prototype ingests CSV exports rather than live Strava/Garmin OAuth --- a deliberate scoping choice that isolates the orchestration feature; OAuth is planned for the build phase.
+
+\emph{Single model family.} All three roles use Claude models. A cross-family comparison (Claude vs.\ GPT vs.\ a local open-weights model in the Coach role) is planned for the final evaluation.
+
+\emph{Critic prompt brittleness.} The Critic's rules live in its prompt and it sometimes over-rejects safe plans on phrasing rather than substance. The planned fix is a structured rule list passed alongside the prompt, with rejection reasons pointing back to specific rules.
+
+\emph{No medical validation.} No medical professional has reviewed the Critic's rules; they are conservative training-load heuristics from sports-science practice, not clinical rules. The UI disclaimer and the user-study consent form state this to users.
+
+\section{What the prototype establishes}
+
+The prototype establishes two preconditions for the remaining work. First, the core technical feature --- three deliberately distinct Claude models in distinct prompted roles, with schema validation between them and an explicit Critic step --- is feasible and yields measurable, comparable outputs. Second, the proposed evaluation methodology (accuracy, consistency, role and prompt ablations) is operationalisable. Both, though on small samples, justify continued investment in the project's central architectural commitments.

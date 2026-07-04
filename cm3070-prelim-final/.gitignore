@@ -1,0 +1,14 @@
+# LaTeX build artifacts (main.pdf is committed intentionally)
+*.aux
+*.log
+*.blg
+*.bbl
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.run.xml
+*.bcf

@@ -1,0 +1,69 @@
+% ==========================================================================
+% Chapter 2: Literature Review (target ~2460 words, max 2500)
+% Structure: research question, branch A, branch B, synthesis & bridge
+% ==========================================================================
+
+\chapter{Review of Related Work}
+\label{ch:lit-review}
+
+\section{Research question and scope of review}
+
+This review is organised around a single research question that anchors what to read, what to critique, and where to bridge to the project:
+
+\begin{quote}
+\textit{How do existing multi-agent large-language-model orchestration systems and AI-based fitness coaching applications address structured reasoning over personal training data, and what architectural and evaluation gaps remain for hybrid-sport athletes?}
+\end{quote}
+
+Two branches of literature are directly relevant. The first is the recent body of work on multi-agent orchestration of large language models, in which systems compose multiple model calls under explicit control logic to overcome the limitations of single-call prompting. The second is the longer-established field of AI-based fitness applications, which has matured from static recommender systems toward adaptive coaching products and, more recently, toward LLM-driven chat coaches. Both branches are treated critically below, and a final synthesis identifies the architectural and evaluation gap this project occupies.
+
+\section{Branch A: Multi-agent LLM orchestration}
+
+\subsection{Reasoning-and-acting in language agents}
+
+ReAct, proposed by Yao et al.~\cite{yao2022react}, showed that weaving chain-of-thought steps together with tool calls yields large improvements over either technique alone on knowledge-intensive tasks. The contribution is foundational: it established that a language model can productively be treated as a reasoning controller that issues tool calls, rather than as a black-box answer generator. ReAct's evaluation, however, is concentrated on factual question-answering benchmarks such as HotpotQA and FEVER, and on agent benchmarks such as ALFWorld and WebShop. The original work uses a single model for both reasoning and acting, and offers no guidance on when to delegate distinct reasoning roles to distinct models. It also makes no provision for schema-validated structured outputs, which are central to any system operating in a domain where downstream consumers (other agents, user interfaces, safety checks) require reliable contracts. These two omissions --- role specialisation and structured output validation --- are directly addressed by the present project.
+
+\subsection{Self-criticism and reflection as an agent primitive}
+
+Reflexion, introduced by Shinn et al.~\cite{shinn2023reflexion}, extends the agent paradigm by adding a self-critique loop: the agent reflects on failed attempts, stores verbal feedback in episodic memory, and conditions future attempts on that feedback. Reflexion materially improves performance on coding and decision-making benchmarks, and is conceptually close to the Critic role used in the present project's pipeline. The critical weakness, acknowledged by the authors, is that self-reflection depends on a usable signal of failure. In coding tasks this is provided by unit-test output; in open-ended domains such as training-plan generation, no analogous environmental signal exists by default. The present project responds to this gap by encoding plausibility and safety rules into the Critic agent's prompt, transforming reflection from an introspective exercise into a rule-grounded check. This is a small but deliberate architectural choice: it treats the Critic not as a self-reflecting model but as a separate role-specialised judge.
+
+\subsection{Multi-agent debate and structured disagreement}
+
+Du et al.~\cite{du2023debate} show that having multiple LLM instances debate and revise their answers improves factuality and reasoning quality on reasoning benchmarks. The mechanism is essentially structured disagreement: each agent sees the others' arguments and updates its own. The result challenges the common assumption that additional compute should always be spent on deeper single-agent reasoning rather than across multiple agents. A genuine architectural weakness of the work, however, is that the agents are identical model copies debating in symmetric roles. The question of whether \emph{distinct} models in \emph{distinct} roles can outperform symmetric debate at fixed compute is left open. The present project's use of three different Claude models (Haiku, Sonnet, Opus) in three non-symmetric roles (classify, generate, critique) is, in part, a small probe of that gap. The choice is also motivated by cost: paying Opus prices for a session-classification task that Haiku can do reliably is a waste of budget that no production-grade orchestrator should accept.
+
+\subsection{Framework-level orchestration}
+
+At the systems level, AutoGen~\cite{wu2023autogen} offers a general toolkit for composing conversational agents that can invoke tools and message one another. LangGraph and similar industry frameworks have since adopted a directed-graph view of agent control flow. These frameworks are powerful, and they have undoubtedly accelerated the adoption of multi-agent patterns in industry, but their published evaluations focus on demonstrating the framework rather than on rigorous ablations of architectural choices. There is also a recurring mismatch between the abstractions these frameworks supply and the small, controllable, schema-validated orchestrators required for high-stakes domains such as health-adjacent coaching. The present project deliberately uses a hand-rolled TypeScript orchestrator with Zod schemas rather than adopting a framework, both to retain explicit control over routing, retries, and validation, and to preserve the orchestration logic itself as the technical contribution. Framework adoption would shift the contribution from \emph{architecture} to \emph{configuration}, which would not meet the template's requirement for technical depth.
+
+\subsection{Common weaknesses across the orchestration literature}
+
+Three weaknesses recur across the orchestration literature reviewed above. First, evaluation is dominated by benchmark accuracy, with little attention to \emph{consistency}: whether the same input produces the same output across repeated runs. In a coaching context where user trust is built on stability of advice from one session to the next, consistency arguably matters more than raw accuracy. Second, almost all systems use a single model across all roles, leaving role-specialisation by model size, latency profile, or cost tier under-explored. Third, structured output validation --- forcing model outputs through a schema before they are passed to the next agent --- is rare in the academic literature, despite being standard in production agent systems. These three gaps directly shape the present project's commitments and are revisited in the synthesis below.
+
+\section{Branch B: AI-based fitness coaching}
+
+\subsection{Platform-led static training plans}
+
+Strava is the dominant social fitness platform and offers training plans as a paid feature. These plans are essentially static templates, parameterised by goal distance and target time, with no continuous adaptation to the athlete's recorded data~\cite{strava_plans}. The strength of the Strava approach is reach and data availability: more athletes use Strava than any single device manufacturer's app. The weakness is the absence of a feedback loop. From a control-systems perspective, Strava's training plans are open-loop control over an inherently stochastic biological process, and the sports-science literature has long shown that closed-loop adaptive approaches outperform open-loop ones on equivalent populations~\cite{busso2003}. The present project closes that loop: the Coach agent receives the athlete's actual recent data on every planning cycle.
+
+\subsection{Adaptive coaching from wearables}
+
+Garmin Coach, supported by Firstbeat analytics, represents the state of the art in commercial adaptive coaching~\cite{firstbeat_whitepaper}. It ingests heart-rate variability and training-status signals derived from years of physiological research and adapts daily workouts accordingly. The right physiological signal is being used, and the underlying load model is well grounded. The critical limitation is sport scope: Garmin Coach is locked to running, cycling, and swimming. Hybrid sport, in which strength work and running interact in non-additive ways, is not supported. The underlying load model is TRIMP-based, which is well established for endurance training but is documented to underweight strength-dominant sessions~\cite{strength_load_critique}. For a Hyrox athlete whose race performance depends on both endurance and strength, a load model that ignores half the training is a structural problem, not a calibration one.
+
+\subsection{AI-driven coaching startups}
+
+A more recent cohort of startups --- including Humango and Athletica --- explicitly markets AI-driven adaptive coaching. Published technical material is sparse, but where available the load models remain TSS-derived and the architectures appear to be single-model rule-augmented pipelines~\cite{humango,athletica}. These products are closed-source subscriptions, which is a legitimate commercial choice but limits academic critique. The architectural pattern they reveal --- a single LLM augmented by heuristic guardrails --- is precisely the pattern the present project departs from. Multiple distinct models in distinct roles, with explicit critique as a separate step, is a deliberately different architecture.
+
+\subsection{Generic LLM coaching applications}
+
+A large number of consumer apps now wrap a single general-purpose chat model in a fitness-themed system prompt. The advantage is rapid development; the documented disadvantage is severe hallucination~\cite{huang2023hallucination}. Fabricated training volumes, confused race formats, and physiologically implausible recommendations are well documented in user reports and in the broader LLM-hallucination literature. The absence of structured inputs and outputs makes these systems essentially impossible to evaluate or constrain rigorously. They form the lower bound against which any serious LLM-coaching system, including this project, must be compared --- not because they represent the state of the art but because they represent what naive LLM adoption looks like and what serious work must visibly exceed.
+
+\subsection{The hybrid-sport gap}
+
+Across the fitness branch, three gaps stand out specifically for Hyrox. First, all major adaptive systems are single-modality (run, bike, swim), and the running-derived load models under-represent strength work. Second, none of the commercial products are open or auditable, which makes them poor scientific baselines and difficult to critique on methodological rather than product grounds. Third, none combines transparent and well-grounded load modelling with the structured-reasoning advantages of recent LLM orchestration work.
+
+\section{Synthesis and bridge to the project}
+
+The two branches of literature reviewed above are usually treated separately, but it is their synthesis that motivates this project. The orchestration literature shows that combining distinct LLM calls under explicit control yields gains in factuality, reasoning, and reliability over single-call prompting, but its evaluation rarely targets domains with strong domain priors and few benchmark labels. The fitness coaching literature, conversely, has strong domain priors and rich biometric data, but its leading commercial systems are either rigid (Strava), single-modality (Garmin), or opaque (Humango, Athletica), and the generic LLM-wrapper apps fail because they discard structure altogether.
+
+This project sits in the unaddressed intersection. It applies the architectural lessons of the orchestration literature --- distinct models in distinct roles, schema-validated outputs, explicit critique --- to the structured biometric data that the fitness literature has long understood how to compute. The novelty is not any single model, nor any single feature, but the deliberate combination of orchestration discipline with sports-science feature engineering, applied to a sport (Hyrox) that no commercial system currently serves well.
+
+Three concrete commitments follow from this synthesis and shape the rest of the report. First, the system uses three deliberately different Claude models in three deliberately different roles, as a small probe of the role-specialisation gap identified in the orchestration literature and as a cost-tiered architectural choice. Second, every agent output is validated against a Zod schema before being passed downstream, addressing the structured-output gap. Third, the evaluation emphasises consistency and ablation alongside accuracy, addressing the consistency gap identified in the orchestration literature and acting on direct supervisory guidance to prioritise objective metrics over user-reported satisfaction.

@@ -2,7 +2,7 @@
 
 **Project:** Hyrox Personal Coach — Multi-Model LLM Orchestration for Hybrid-Sport Training
 **Student:** Iliass Jabali (230586639)
-**Template:** CM3020 Project Idea 1 — Orchestrating AI Models to Achieve a Goal
+**Template:** CM3020 Project Idea 1 — Governing Multiple Models Around a Goal
 **Stack:** TypeScript + Next.js + Vercel AI SDK + 3 Claude models (Haiku/Sonnet/Opus) + Zod + Vitest
 **Report:** LaTeX (Overleaf, IEEE referencing)
 

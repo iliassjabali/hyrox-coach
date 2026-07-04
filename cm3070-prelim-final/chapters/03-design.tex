@@ -1,0 +1,149 @@
+% ==========================================================================
+% Chapter 3: Design (target ~1950 words, max 2000)
+% ==========================================================================
+
+\chapter{System Design}
+\label{ch:design}
+
+\section{Domain analysis and user model}
+
+The system targets a specific user: a healthy adult Hyrox athlete who already records workouts to Strava and wears a Garmin device. The user wants concrete next-session guidance grounded in their actual data, not generic recommendations. They are technically literate enough to authorise an OAuth connection but should not need to interpret raw biometric data themselves. Their reading habits during a training week are short: a one-screen weekly plan with a clear rationale is the target deliverable, not a research dashboard.
+
+Three design properties are optimised for. The first is \emph{transparency} --- the user can always see why a recommendation was made, both at the session-classification level and at the planning level. The second is \emph{safety} --- recommendations are checked before being shown, never produced silently. The third is \emph{consistency} --- the same data should yield similar advice on repeated runs, because user trust depends on stability of advice over time rather than on its peak quality on any single run. These three properties drive the architectural decisions described in the rest of this chapter.
+
+\section{System Blueprint}
+
+The architecture is a directed pipeline with five components, deployed as a single Next.js application written in TypeScript:
+
+\begin{enumerate}
+  \item \textbf{Ingestion layer.} Pulls workout sessions from Strava and Garmin via OAuth (currently CSV import in the prototype) and persists raw activity records.
+  \item \textbf{Feature engineering layer.} Pure TypeScript. Converts raw sessions into structured features including pace zones, heart-rate zones, TRIMP (training impulse), and acute-to-chronic workload ratio (ACWR).
+  \item \textbf{Agent pipeline.} Three prompted Claude agents (Classifier, Coach, Critic) called in sequence, each producing Zod-validated JSON consumed by the next stage.
+  \item \textbf{Orchestrator.} Custom TypeScript code that routes data between agents, retries on schema failure, and resolves conflicts when the Critic rejects or revises the Coach's output.
+  \item \textbf{Presentation layer.} A minimal Next.js page that renders the resulting weekly plan, the per-session classification, and the Critic's rationale.
+\end{enumerate}
+
+Figure~\ref{fig:architecture} illustrates the data flow. The orchestrator (not shown explicitly) sits beneath the agent pipeline and is the project's principal technical contribution.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  node distance=6mm and 9mm,
+  box/.style={draw, rounded corners=2pt, align=center, minimum height=10mm, inner sep=4pt, fill=blue!4},
+  agent/.style={box, fill=green!7, minimum width=20mm},
+  io/.style={box, fill=gray!8},
+  flow/.style={-{Stealth[length=2.2mm]}, thick},
+]
+  % Main left-to-right pipeline
+  \node[io] (ingest) {Ingestion\\\scriptsize Strava/Garmin\\\scriptsize (CSV in prototype)};
+  \node[box, right=of ingest] (feat) {Feature eng.\\\scriptsize TRIMP, ACWR,\\\scriptsize HR/pace zones};
+  \node[agent, right=of feat] (clf) {Classifier\\\textbf{Haiku}};
+  \node[agent, right=of clf] (coach) {Coach\\\textbf{Opus}};
+  \node[agent, right=of coach] (critic) {Critic\\\textbf{Sonnet}};
+  \node[io, right=of critic] (persist) {Persist\\\scriptsize SQLite/Postgres};
+  \node[io, right=of persist] (ui) {UI\\\scriptsize Next.js plan\\\scriptsize + rationale};
+
+  \draw[flow] (ingest) -- (feat);
+  \draw[flow] (feat) -- (clf);
+  \draw[flow] (clf) -- node[above, font=\scriptsize] {Zod} (coach);
+  \draw[flow] (coach) -- node[above, font=\scriptsize] {Zod} (critic);
+  \draw[flow] (critic) -- (persist);
+  \draw[flow] (persist) -- (ui);
+
+  % Orchestrator band beneath the three agents
+  \node[draw, dashed, rounded corners, fill=orange!6, fit=(clf)(coach)(critic),
+        inner sep=7mm, label=below:{\footnotesize\textbf{Orchestrator} --- routing, schema validation, bounded retries, conflict resolution}] (orch) {};
+
+  % Critic -> Coach revision feedback loop
+  \draw[flow, dashed] (critic.south) to[out=-90, in=-90] node[below, font=\scriptsize, yshift=-1mm] {reject/revise $\rightarrow$ critic feedback} (coach.south);
+\end{tikzpicture}%
+}
+\caption{System architecture; the pipeline runs from ingestion on the left to rendering on the right, and each agent's output is validated against a Zod schema (labelled \emph{Zod}) before the next stage consumes it. The orchestrator spans the three Claude agents and owns reliability: routing, schema-validation retries, and the reject/revise feedback loop that returns Critic feedback to the Coach.}
+\label{fig:architecture}
+\end{figure}
+
+\section{Agent role design and model selection}
+
+A core architectural choice is the deliberate use of three different Claude models in three different roles. The choice follows the cost--capability spectrum: Claude Haiku is the fastest and least expensive, Claude Opus is the most capable, and Claude Sonnet sits between them. Each role is matched to the model whose capability profile fits the task, not to the strongest available model. This is a small probe of the role-specialisation question raised in the orchestration literature and a deliberate cost-tiered design.
+
+\subsection{Classifier (Claude Haiku)}
+
+The Classifier receives a single session's structured features and assigns it to one of a small set of Hyrox-relevant labels: \texttt{run}, \texttt{strength}, \texttt{sled}, \texttt{burpees}, \texttt{hybrid}, \texttt{recovery}, or \texttt{other}. The label space is small and the reasoning required is shallow. Classification runs once per session, potentially on dozens of sessions per athlete, so cost and latency dominate, which makes Haiku the right model. The Classifier's output is validated against the \texttt{ClassifierOutput} schema and stored alongside the session.
+
+\subsection{Coach (Claude Opus)}
+
+The Coach receives the full athlete history --- typically 30 days of classified sessions plus aggregated features --- and produces a structured next-session recommendation: session type, duration, intensity zone, rationale, and any warnings. This is the most demanding reasoning step, because the model must reason simultaneously over load, fatigue, the athlete's hybrid-sport profile, and the Hyrox race calendar. Opus is chosen for this role. The Coach is invoked at most once per planning cycle, so the cost premium is bounded.
+
+\subsection{Critic (Claude Sonnet)}
+
+The Critic receives the Coach's recommendation along with the athlete's recent history and returns a verdict --- \texttt{approve}, \texttt{revise}, or \texttt{reject} --- with structured reasons. The Critic enforces a small set of hard rules encoded in its prompt: no consecutive maximum-intensity days, no recommendation that ignores a documented ACWR spike, no medical or clinical claims. Sonnet is chosen because careful rule application is required but Opus-level open-ended reasoning is not.
+
+\section{Schemas and structured outputs}
+
+Every agent output is validated at runtime against a Zod schema. This is a deliberate architectural commitment: the schema is the contract between agents, and an output that fails validation triggers a retry or a hard failure rather than silent downstream degradation. Listing~\ref{lst:zod} shows the principal schemas.
+
+\begin{lstlisting}[language=TypeScript, caption={Representative Zod schemas. Each agent's output is validated against its schema before being passed to the next stage.}, label={lst:zod}]
+import { z } from 'zod';
+
+export const ClassifierOutput = z.object({
+  sessionId: z.string(),
+  label: z.enum(['run', 'strength', 'sled', 'burpees',
+                 'hybrid', 'recovery', 'other']),
+  confidence: z.number().min(0).max(1),
+  rationale: z.string().min(10).max(300),
+});
+
+export const CoachOutput = z.object({
+  sessionType: ClassifierOutput.shape.label,
+  durationMinutes: z.number().int().min(15).max(180),
+  intensityZone: z.enum(['Z1', 'Z2', 'Z3', 'Z4', 'Z5']),
+  rationale: z.string().min(20).max(500),
+  warnings: z.array(z.string()).default([]),
+});
+
+export const CriticOutput = z.object({
+  verdict: z.enum(['approve', 'revise', 'reject']),
+  reasons: z.array(z.string()).min(1),
+  revisedPlan: CoachOutput.optional(),
+});
+\end{lstlisting}
+
+Schema validation is not a presentation concern; it is a control-flow primitive. If the Classifier returns a label outside the enum, the orchestrator does not pass that output to the Coach. Instead, it retries with a more explicit prompt suffix and ultimately fails loudly rather than silently degrading.
+
+\section{Orchestrator design}
+
+The orchestrator is the project's main technical contribution and a small TypeScript module with three responsibilities. First, \emph{routing}: it calls Classifier $\to$ Coach $\to$ Critic in sequence, threading each agent's typed output into the next. Second, \emph{retries}: on a schema validation failure, it retries with an explicit ``the previous output did not match the required schema; correct it'' suffix, up to a small bounded number of attempts (currently three). Third, \emph{conflict resolution}: if the Critic returns \texttt{reject}, the orchestrator does not surface the Coach's original output to the user; if the Critic returns \texttt{revise} with a \texttt{revisedPlan}, the orchestrator surfaces the revision and records both versions for later evaluation.
+
+The orchestrator is built directly on the Vercel AI SDK's model-call primitives, not on a higher-level agent framework such as LangGraph or AutoGen. This is a deliberate scoping decision discussed in Chapter~\ref{ch:lit-review}: framework adoption would shift the contribution from architecture to configuration and obscure the technical depth the template requires.
+
+\section{Data layer}
+
+Athlete data is stored in a local SQLite database during development and is intended to move to a managed Postgres instance for the user study. The schema separates raw activity records (immutable), engineered features (recomputable), and agent outputs (versioned). Versioning agent outputs is necessary for ablation: it must be possible to compare, for example, Coach prompt variant v1 against v2 on identical inputs, which requires retaining both outputs.
+
+\section{Work plan and feasibility}
+
+The work plan covers 22 weeks and is organised into eight phases: setup, prototype harness, literature review and design, preliminary report and prototype video (week 7), full system build (weeks 7--14), user study and objective evaluation (weeks 14--17), draft report (week 18), and final submission and exam revision (weeks 18--22). A detailed Gantt chart is maintained alongside the project repository and is updated weekly.
+
+The plan is feasible given three factors. The first is the author's senior full-stack engineering background, which removes most of the implementation risk from the TypeScript, Next.js, and database layers. The second is deliberate scoping: no model training, no novel machine-learning research, a single sport, and a small bounded user study. The third is risk mitigation by interface isolation: the integration layer (Strava, Garmin, Anthropic API) is hidden behind narrow TypeScript interfaces, so any single integration that becomes unstable can be re-implemented or replaced without affecting the orchestration logic. The principal residual risks are athlete recruitment shortfall for the user study, ingestion-API instability from Strava or Garmin, and Anthropic API schema drift; all are tracked explicitly and mitigated in the weekly plan.
+
+\section{Evaluation approach}
+
+Following direct supervisory guidance, the evaluation prioritises objective metrics, with the user study acting as a supplementary signal rather than the primary one. Four objective metrics are planned.
+
+\emph{Classifier accuracy.} A held-out set of manually labelled sessions (target: 50 or more sessions across multiple athletes) is used to compute precision, recall, and a confusion matrix.
+
+\emph{Output consistency.} The same input is run through the full pipeline N times (target: five to ten); structural variance (changes in session type or intensity zone) is reported as a stability metric.
+
+\emph{Prompt-variant ablation.} Three Coach prompt variants are compared on a fixed athlete history. The Critic's approval rate and human review scores are used to compare them.
+
+\emph{Critic ablation.} The pipeline is run with and without the Critic stage. The rate of safety-relevant violations (consecutive maximum-intensity recommendations, ACWR-ignoring recommendations) is compared between the two configurations to confirm the Critic is doing measurable work.
+
+The user study is small (five to ten consenting adult Hyrox athletes, recruited via the author's professional network and local Hyrox communities). It runs over four weeks and collects post-trial Likert ratings on plan usefulness, trust, and willingness to continue using the system. It is explicitly treated as a supplementary signal and does not bear the weight of the evaluation argument; the four objective metrics above do.
+
+\section{Ethics, safety, and inclusion}
+
+The system is health-adjacent, so ethics and safety are explicit design concerns rather than afterthoughts. Three commitments are encoded directly in the design. First, written informed consent is collected from every user-study participant before any data is collected, with clear explanation of data use, retention, and withdrawal rights. Second, athlete data is stored encrypted at rest with a documented retention and deletion timeline. Third, a permanent disclaimer is visible in the user interface stating that the system is a training aid, not medical advice, and that participants should consult a coach or doctor before acting on its recommendations.
+
+Inclusion is addressed explicitly. The Hyrox population is itself demographically skewed, so the system's load priors may not generalise to all users; this limitation is acknowledged in the disclaimer and discussed in the final-report DEI section. Accessibility of the user interface (colour contrast, screen-reader compatibility, large-text mode) is treated as a first-class requirement rather than a polish task.

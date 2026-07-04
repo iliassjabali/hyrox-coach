@@ -1,0 +1,45 @@
+% ==========================================================================
+% Chapter 1: Introduction (target ~950 words, max 1000)
+% ==========================================================================
+
+\chapter{Scope and Context}
+\label{ch:introduction}
+
+\section{Concept and contribution}
+
+This project designs a personal AI training companion for athletes competing in Hyrox, a hybrid-fitness race format that combines running with functional strength workouts. The system ingests an athlete's recent training history from their existing Strava and Garmin accounts, computes structured features such as heart-rate zones, training load, and acute-to-chronic workload ratio, and produces a next-session recommendation as schema-validated JSON. The reasoning is performed by three distinct pre-trained large language models, each used in a different prompted agent role: a small model classifies sessions, a large model generates coaching guidance, and a mid-size model critiques that guidance for plausibility and safety. A custom orchestrator, written in TypeScript and built directly on the Vercel AI SDK, handles routing, retries, and conflict resolution between agents. The technical contribution is not any single model but the deliberate orchestration discipline applied to a domain that has historically been served either by static plans or by single-model chat coaches.
+
+\section{Template and requirements}
+
+This project follows \textbf{CM3020 Project Idea 1: Multi-Model Orchestration for a Target Outcome}, operating across different domains or data spaces, into a single workflow that solves a well-specified problem. It explicitly does not require model training; the contribution is in model selection, integration, software engineering, and rigorous evaluation. The template flags that simply running models is not enough: markers expect evidence of testing, rejection, and substitution as part of the development process.
+
+The present project meets these requirements as follows. Three pre-trained models are used: Anthropic's Claude Haiku, Claude Sonnet, and Claude Opus, each in a distinct prompted role. The three roles --- classification, generation, and critique --- operate over structurally different reasoning tasks even though the underlying data domain is shared. The integration is a custom TypeScript orchestrator built on the Vercel AI SDK, deliberately avoiding higher-level agent frameworks so that the orchestration logic itself constitutes the technical contribution. Schema validation between agents is enforced by Zod at runtime. Evaluation prioritises objective metrics --- classifier accuracy, output consistency, and ablation studies --- with a small user study as a supplementary signal, following direct guidance from the project supervisor.
+
+\section{Motivation and need}
+
+Hyrox is a hybrid-fitness race comprising 8\,km of running interspersed with 8 functional workout stations such as sled pushes, burpee broad jumps, and wall balls. It is currently among the fastest-growing fitness sports globally, with reported participation more than doubling year on year since 2022 \cite{hyrox_growth}. The athlete population is expanding rapidly while access to expert coaching has not kept pace.
+
+Athletes currently choose between two unsatisfactory options. The first is following a generic static training plan distributed as a PDF or spreadsheet; such plans ignore the athlete's individual data entirely and treat training as open-loop control over an inherently stochastic biological system. The second is paying a human coach, typically between EUR\,150 and EUR\,300 per month, which is inaccessible to most amateur athletes. Meanwhile, the athlete's own wearables already record everything a coach would need to reason about: heart-rate variability, sleep, resting heart rate, acute and chronic load, pace distributions, and perceived exertion. The data exists; the missing layer is intelligent, individualised reasoning over it.
+
+Recent advances in large language models suggest that this reasoning layer is now technically feasible at low cost. However, naively wrapping a single chat model around a system prompt has documented failure modes: hallucinated training volumes, inconsistent recommendations between sessions, and an inability to handle the multi-modal nature of hybrid sport, in which running load and strength load interact in non-additive ways. A more rigorous approach is required, and that is what this project proposes.
+
+\section{Goal and objectives}
+
+This project sets out to determine whether a multi-agent orchestration of distinct pre-trained large language models, grounded in structured biometric features and constrained by schema validation, can produce coaching guidance that is consistent, plausible, and useful to Hyrox athletes.
+
+To meet this aim, the project pursues four objectives:
+
+\begin{enumerate}
+  \item Design and implement a data ingestion and feature engineering layer that converts raw Strava and Garmin exports into structured features relevant to hybrid-sport training load.
+  \item Design and implement a three-agent orchestration pipeline with distinct large language models in distinct prompted roles, schema-validated outputs, and explicit conflict resolution between agents.
+  \item Evaluate the system using objective metrics --- classifier accuracy, output consistency, prompt-variant and Critic ablations --- as the primary signal, supplemented by a small user study with consenting adult athletes.
+  \item Critically compare the resulting system to both the multi-agent LLM orchestration literature and existing AI-based fitness applications, articulating how the architecture differs and what gap it addresses.
+\end{enumerate}
+
+\section{Scope and boundaries}
+
+The system is deliberately scoped. It targets a single sport (Hyrox), a single athlete population (consenting healthy adults), and read-only ingestion of pre-existing wearable data. It produces training guidance and never medical or clinical claims; a permanent disclaimer is presented in the user interface. The user study is small in scale (five to ten participants) and supplementary; the primary evaluation is offline and objective. These constraints reflect both feasibility for a single student over the project duration and direct supervisory guidance.
+
+\section{Structure of this report}
+
+The rest of this preliminary report proceeds as follows. Chapter~\ref{ch:lit-review} surveys two strands of prior work: multi-agent LLM orchestration systems from recent research, and existing AI-based fitness coaching applications. Each is critiqued and the two are then synthesised to identify the gap this project addresses. Chapter~\ref{ch:prototype} turns to the feature prototype. Chapter~\ref{ch:design} comes first, laying out the system design: it defines the evaluation strategy and work plan, specifies the schemas, maps each agent to its role, and details the orchestration architecture. Together they answer what this project takes on.
