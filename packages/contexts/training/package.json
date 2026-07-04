@@ -13,7 +13,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "eval:accuracy": "tsx src/evaluation/runners/run-accuracy.ts",
+    "eval:consistency": "tsx src/evaluation/runners/run-consistency.ts",
+    "eval:ablation": "tsx src/evaluation/runners/run-ablation.ts",
+    "eval:prompts": "tsx src/evaluation/runners/run-prompt-variants.ts",
+    "eval:all": "pnpm eval:accuracy && pnpm eval:consistency && pnpm eval:ablation && pnpm eval:prompts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.0",
@@ -23,6 +28,7 @@
     "zod": "^3.25.0"
   },
   "devDependencies": {
-    "@hyrox/config": "workspace:*"
+    "@hyrox/config": "workspace:*",
+    "tsx": "^4.19.2"
   }
 }
