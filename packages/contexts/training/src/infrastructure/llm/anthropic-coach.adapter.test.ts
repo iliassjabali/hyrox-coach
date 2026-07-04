@@ -32,4 +32,35 @@ describe('AnthropicCoachAdapter', () => {
     expect(plan.sessions[0]!.focus).toBe('easy aerobic');
     expect(usage).toEqual({ inputTokens: 100, outputTokens: 40 });
   });
+
+  it('recovers a stringified sessions value (Opus sometimes returns JSON-as-string)', async () => {
+    const stringifyingCall: StructuredLlmCall = async (opts) => ({
+      object: opts.schema.parse({
+        sessions: JSON.stringify({ sessions: [{ day: 2, type: 'sled', focus: 'technique' }] }),
+      }),
+      usage: { inputTokens: 1, outputTokens: 1 },
+    });
+    const adapter = new AnthropicCoachAdapter(stringifyingCall);
+
+    const { plan } = await adapter.generatePlan({ sessions: history, weekStartingOn: new Date('2026-06-08T00:00:00Z') });
+
+    expect(plan.sessions[0]!.type.value).toBe('sled');
+    expect(plan.sessions[0]!.focus).toBe('technique');
+  });
+
+  it('forwards an injected system prompt to the model call (prompt-variant ablation)', async () => {
+    let captured = '';
+    const recordingCall: StructuredLlmCall = async (opts) => {
+      captured = opts.system;
+      return {
+        object: opts.schema.parse({ sessions: [{ day: 1, type: 'run', focus: 'easy aerobic' }] }),
+        usage: { inputTokens: 1, outputTokens: 1 },
+      };
+    };
+    const adapter = new AnthropicCoachAdapter(recordingCall, 'claude-opus-4-8', 'CUSTOM SYSTEM PROMPT');
+
+    await adapter.generatePlan({ sessions: history, weekStartingOn: new Date('2026-06-08T00:00:00Z') });
+
+    expect(captured).toBe('CUSTOM SYSTEM PROMPT');
+  });
 });
