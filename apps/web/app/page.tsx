@@ -12,11 +12,23 @@ const SAMPLE_SESSIONS = [
 
 type CoachResult = Awaited<ReturnType<typeof trpc.training.coachAthlete.mutate>>;
 
+type PlanShape = {
+  weekStartingOn: string;
+  sessions: { day: number; type: string; focus: string }[];
+};
+
 type Progress =
-  | { stage: 'classified'; byType: Record<string, number> }
+  | { stage: 'classified'; byType: Record<string, number>; perSession: { id: string; type: string }[] }
   | { stage: 'coaching'; attempt: number }
   | { stage: 'reviewing'; attempt: number }
-  | { stage: 'critic'; attempt: number; accepted: boolean; reasons: string[] };
+  | {
+      stage: 'critic';
+      attempt: number;
+      accepted: boolean;
+      reasons: string[];
+      plan: PlanShape;
+      tokens: number;
+    };
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -27,11 +39,47 @@ const TAG_COLOURS: Record<string, { bg: string; fg: string }> = {
   mixed: { bg: 'rgba(45,212,191,0.18)', fg: '#5eead4' },
 };
 
+const fmtDate = (d: Date): string =>
+  d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const fmtMinutes = (seconds: number): string => `${Math.round(seconds / 60)} min`;
+
+function Tag({ type }: { type: string }): ReactNode {
+  const colour = TAG_COLOURS[type] ?? { bg: '#1b2130', fg: '#cfd6e4' };
+  return (
+    <span className={styles.tag} style={{ background: colour.bg, color: colour.fg }}>
+      {type}
+    </span>
+  );
+}
+
+function PlanRows({ sessions }: { sessions: PlanShape['sessions'] }): ReactNode {
+  return (
+    <div className={styles.plan}>
+      {sessions.map((session, index) => (
+        <div className={styles.planRow} key={index}>
+          <span className={styles.day}>{DOW[session.day] ?? `Day ${session.day}`}</span>
+          <Tag type={session.type} />
+          <span className={styles.focus}>{session.focus}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const [result, setResult] = useState<CoachResult | null>(null);
   const [progress, setProgress] = useState<Progress[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Per-session labels stream in with the 'classified' event; hold them so the
+  // training-data card can show what the Classifier made of each input session.
+  const labels: Record<string, string> = {};
+  for (const event of progress) {
+    if (event.stage === 'classified') {
+      for (const s of event.perSession) labels[s.id] = s.type;
+    }
+  }
 
   async function generate() {
     setLoading(true);
@@ -101,6 +149,31 @@ export default function Home() {
 
       <div className={styles.disclaimer}>⚠️ Training aid only — not medical advice.</div>
 
+      <section className={styles.dataCard}>
+        <div className={styles.dataHead}>
+          <span className={styles.dataTitle}>Athlete input — last 3 sessions</span>
+          <span className={styles.dataHint}>the raw history fed to the pipeline</span>
+        </div>
+        <div className={styles.dataTable}>
+          <div className={`${styles.dataRow} ${styles.dataHeadRow}`}>
+            <span>Date</span>
+            <span>Duration</span>
+            <span>Distance</span>
+            <span>Avg HR</span>
+            <span>Classified</span>
+          </div>
+          {SAMPLE_SESSIONS.map((s) => (
+            <div className={styles.dataRow} key={s.id}>
+              <span>{fmtDate(s.date)}</span>
+              <span>{fmtMinutes(s.durationSeconds)}</span>
+              <span>{s.distanceMeters ? `${(s.distanceMeters / 1000).toFixed(1)} km` : '—'}</span>
+              <span>{s.averageHeartRate ? `${s.averageHeartRate} bpm` : '—'}</span>
+              <span>{labels[s.id] ? <Tag type={labels[s.id]!} /> : <span className={styles.pending}>…</span>}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <button className={styles.button} onClick={generate} disabled={loading}>
         {loading && <span className={styles.spinner} aria-hidden />}
         {loading ? 'Coaching…' : 'Generate weekly plan from sample data'}
@@ -135,20 +208,7 @@ export default function Home() {
             </span>
           </div>
 
-          <div className={styles.plan}>
-            {result.plan.sessions.map((session, index) => {
-              const colour = TAG_COLOURS[session.type] ?? { bg: '#1b2130', fg: '#cfd6e4' };
-              return (
-                <div className={styles.planRow} key={index}>
-                  <span className={styles.day}>{DOW[session.day] ?? `Day ${session.day}`}</span>
-                  <span className={styles.tag} style={{ background: colour.bg, color: colour.fg }}>
-                    {session.type}
-                  </span>
-                  <span className={styles.focus}>{session.focus}</span>
-                </div>
-              );
-            })}
-          </div>
+          <PlanRows sessions={result.plan.sessions} />
 
           {!result.accepted && result.verdict.reasons.length > 0 && (
             <ul className={styles.reasons} style={{ marginTop: 16 }}>
@@ -171,6 +231,9 @@ function Step({ event, active }: { event: Progress; active: boolean }) {
   let role = '';
   let title = '';
   let reasons: string[] | null = null;
+  let perSession: { id: string; type: string }[] | null = null;
+  let draft: PlanShape | null = null;
+  let tokens: number | null = null;
 
   switch (event.stage) {
     case 'classified': {
@@ -178,7 +241,8 @@ function Step({ event, active }: { event: Progress; active: boolean }) {
       const counts = Object.entries(event.byType)
         .map(([type, n]) => `${n}× ${type}`)
         .join(', ');
-      title = `labelled sessions — ${counts}`;
+      title = `labelled ${event.perSession.length} sessions — ${counts}`;
+      perSession = event.perSession;
       break;
     }
     case 'coaching':
@@ -197,6 +261,7 @@ function Step({ event, active }: { event: Progress; active: boolean }) {
       break;
     case 'critic':
       role = 'Critic · Sonnet';
+      tokens = event.tokens;
       if (event.accepted) {
         title = `approved the plan (attempt ${event.attempt})`;
       } else {
@@ -204,6 +269,7 @@ function Step({ event, active }: { event: Progress; active: boolean }) {
         icon = '✗';
         title = `requested a revision (attempt ${event.attempt})`;
         reasons = event.reasons;
+        draft = event.plan; // the (rejected) draft the Critic reviewed
       }
       break;
   }
@@ -214,7 +280,21 @@ function Step({ event, active }: { event: Progress; active: boolean }) {
       <div className={styles.stepBody}>
         <div className={styles.stepTitle}>
           <span className={styles.stepRole}>{role}</span> — {title}
+          {tokens !== null && <span className={styles.stepTokens}>{tokens} tokens so far</span>}
         </div>
+        {perSession && (
+          <div className={styles.chips}>
+            {perSession.map((s) => (
+              <Tag type={s.type} key={s.id} />
+            ))}
+          </div>
+        )}
+        {draft && (
+          <div className={styles.draft}>
+            <div className={styles.draftLabel}>Rejected draft:</div>
+            <PlanRows sessions={draft.sessions} />
+          </div>
+        )}
         {reasons && (
           <ul className={styles.reasons}>
             {reasons.map((reason, index) => (
