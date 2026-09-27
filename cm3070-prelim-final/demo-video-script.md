@@ -1,74 +1,77 @@
-# Feature-Prototype Demo Video — Script & Shot List
+# Final Project Demo Video — Script & Shot List
 
-**Target: 3–5 minutes. Format MUST be MP4.** Record screen + voice (QuickTime →
-File → New Screen Recording on macOS, or Loom/OBS exported to MP4).
+**Target: 3–5 minutes (this script runs ~4:30). Format MUST be MP4.** Record screen +
+voice (QuickTime → File → New Screen Recording on macOS, or Loom/OBS exported to MP4).
+Your voice must narrate throughout; you don't need to appear on camera.
 
 **Before recording:**
 
-- Start the web app (true Opus/Sonnet tiers via your Anthropic key):
+- Start the web app (true Opus/Sonnet tiers via your Anthropic key in `apps/web/.env.local`):
   ```bash
-  set -a && . ./.env && set +a && pnpm --filter @hyrox/web dev
+  pnpm --filter @hyrox/web dev
   ```
-
   Open http://localhost:3000. Do one warm-up run so the first on-camera run is snappy.
-- Have a terminal and your editor open. Keep your API key off-screen.
-- Open `main.pdf` to the architecture diagram (Fig 1) for the design section.
+- Have a terminal and your editor open. **Keep your API key off-screen.**
+- Have `images/architecture.png` open for the architecture section (or show Fig 1 in `main.pdf`).
 
 ---
 
-## 0:00–0:20 — Intro
+## 0:00–0:20 — Hook + intro
 
-> "Hi, I'm Iliass Jabali. This is the feature-prototype demo for my CM3070 project,
-> *Hyrox Personal Coach* — it turns an athlete's training history into a
-> safety-validated weekly plan using three Claude models in three distinct agent
-> roles. The technical feature is the orchestration: a Classifier, a Coach, and a
-> Critic, with schema-validated hand-offs and an orchestrator that retries and
-> resolves conflicts."
+> "AI fitness apps routinely hand out unsafe training plans — huge volume jumps, no rest
+> days — because a single model has nothing checking its work. I'm Iliass Jabali, and my
+> CM3070 final project, *Hyrox Personal Coach*, fixes that with three specialised Claude
+> models in three distinct roles — a Classifier, a Coach, and a Critic — orchestrated so
+> that no plan reaches the athlete until it's been reviewed and approved."
 
-**On screen:** title slide, or the architecture diagram (Fig 1 in `main.pdf`).
+**On screen:** the app landing page (title + the Classifier→Coach→Critic pills), or a title slide.
 
 ## 0:20–0:55 — Architecture
 
-> "The pipeline is ingest → feature engineering → Classifier on Haiku → Coach on
-> Opus → Critic on Sonnet. Each model is matched to its task on a cost–capability
-> spectrum: Haiku is cheap for shallow labelling, Opus does the hard plan reasoning,
-> Sonnet does careful rule-based review. Every agent returns a Zod-validated object;
-> if validation fails the orchestrator retries, and if the Critic rejects a plan its
-> feedback goes back to the Coach for another attempt."
+> "The pipeline runs left to right: ingestion, feature engineering, then Classifier on
+> Haiku, Coach on Opus, Critic on Sonnet, then persistence and the UI. Each model is matched
+> to its task on a cost–capability spectrum — Haiku is cheap for shallow labelling, Opus
+> does the hard plan reasoning, Sonnet does careful rule-based review. Every hand-off is
+> validated against a Zod schema. Underneath the three agents sits the orchestrator — the
+> project's core contribution — which owns routing, schema-validation retries, and the
+> reject/revise feedback loop that sends the Critic's reasons back to the Coach."
 
-**On screen:** Fig 1, then a quick glance at
-`packages/contexts/training/src/application/use-cases/coach-athlete.use-case.ts`
-(the classify → coach → critic loop) and `.../llm/models.ts` (the three model IDs).
+**On screen:** `images/architecture.png` (the pipeline diagram). Trace the flow with the
+cursor, then point at the orchestrator band and the dashed feedback loop.
 
-## 0:55–2:30 — Live web demo (the centrepiece)
+## 0:55–2:45 — Live web demo (the centrepiece)
 
-Browser at http://localhost:3000. Point out the header pills: **Classifier · Haiku
-→ Coach · Opus → Critic · Sonnet**. Click **Generate weekly plan from sample data**
-and narrate the live timeline as it streams in:
+Browser at http://localhost:3000. Point out the header pills, then the **athlete-input table**.
 
-> "Everything you're about to see is live — these are real Claude calls, streamed
-> stage by stage.
-> First the **Classifier on Haiku** labels the recent sessions.
-> Then the **Coach on Opus** drafts a weekly plan.
-> Now the **Critic on Sonnet** reviews it — and here it *rejects* the first draft.
-> Look at the reasoning: it cites the ~10% weekly-volume rule, flags no dedicated
-> rest day, and back-to-back high-intensity sessions. That's the safety layer doing
-> real work.
-> The orchestrator feeds that feedback back to the Coach, which **redrafts** —
-> and this time the Critic **approves** it."
+> "Everything here is live — real Claude calls, streamed stage by stage. First, the raw
+> input: three recent sessions — a 30-minute run, a 40-minute session, a 20-minute session.
+> That's all the athlete history the system gets."
 
-Then point at the result card:
+Click **Generate weekly plan from sample data**. As the stream runs, narrate:
 
-> "The accepted plan: notice it now has explicit rest and recovery days that the
-> first draft was missing — the critique measurably improved the output. It shows
-> the number of attempts and the token cost, because cost and latency are tracked as
-> first-class product concerns."
+> "First the Classifier on Haiku labels each session — watch the *Classified* column fill in:
+> run, mixed, mixed. Notice each call shows its dollar cost — cost is tracked as a
+> first-class metric, not an afterthought.
+> Then the Coach on Opus drafts a full week.
+> Now the Critic on Sonnet reviews it — and it *rejects* the draft. This is the key moment:
+> you can see the exact plan it rejected and the specific, cited reasons — an excessive
+> volume jump, no rest day, threshold intervals placed too early, a sled session with no
+> baseline. That's the safety layer doing real work."
 
-**What to emphasise:** the three coloured agent steps, the Critic's bulleted
-reasons, the reject → revise → approve loop, and the rest days appearing in the
-revised plan.
+> "The orchestrator feeds those reasons back to the Coach, which redrafts — and if the Critic
+> still isn't satisfied, it rejects again. Only when the plan is genuinely safe does the
+> Critic approve it."
 
-## 2:30–3:10 — Engineering rigour (terminal)
+Point at the accepted result card:
+
+> "The accepted plan now has explicit rest and recovery days and an introductory, scaled-down
+> sled session — the critique measurably improved the output. And the summary shows the number
+> of attempts, the total tokens, and the total dollar cost of the whole run."
+
+**Emphasise:** the input table + live classification, the per-call dollar cost, and — above
+all — the rejected draft plans with the Critic's reasons, then the safe approved plan.
+
+## 2:45–3:20 — Engineering rigour (terminal)
 
 > "Under the UI this is a hexagonal TypeScript codebase, built test-first."
 
@@ -76,55 +79,57 @@ revised plan.
 pnpm --filter @hyrox/training test
 ```
 
-> "Sixty-plus unit tests — domain, orchestrator, adapters, evaluation metrics — all
-> green."
+> "Seventy unit tests — domain, the orchestrator's retry and conflict-resolution logic, each
+> adapter, the evaluation metrics, and the training-load feature engineering — all green, all
+> network-free. The feature layer computes the Banister TRIMP score and the acute-to-chronic
+> workload ratio, both unit-tested."
 
-```bash
-pnpm --filter @hyrox/training eval:accuracy
-```
+Optional depth point:
 
-> "And the evaluation harness: this classifies a labelled set through the live Haiku
-> Classifier and prints accuracy and a confusion matrix."
+> "The orchestrator is also resilient — when Opus occasionally returns malformed structured
+> output, a recovery step at the adapter boundary fixes it and the run continues instead of
+> crashing."
 
-Optional one-liner on resilience (nice depth point):
+## 3:20–4:10 — Evaluation & honest limitations
 
-> "The orchestrator is also resilient — when Opus occasionally returns malformed
-> structured output, the system recovers and retries instead of failing the run."
+> "The graded core is objective evaluation, run on the true model tiers: classifier accuracy
+> with a confusion matrix, output consistency across repeated runs, a Critic ablation, and a
+> prompt-variant comparison — all in Chapter 5 of the report. The strongest result is the
+> ablation: the Critic intervened on every single run, so with the true-tier Coach, every
+> unreviewed first draft would have reached the athlete unchanged."
 
-## 3:10–3:55 — Evaluation & honest limitations
+> "Two honest limitations. The figures come from a small *synthetic* labelled set, not real
+> athlete data, so they're feasibility evidence to be re-measured on a real multi-athlete set.
+> And output consistency is only 25% — the same input doesn't always give the same plan — which
+> I report as a real architectural limitation rather than hide."
 
-> "The graded core is objective evaluation, following the agent-evaluation
-> literature: classifier accuracy with a confusion matrix, output consistency across
-> repeated runs, a Critic ablation, and a prompt-variant comparison — all runnable
-> with `pnpm eval`. Two honest points. The reported figures use a small *synthetic*
-> labelled set, not private athlete data, so they're feasibility evidence that the
-> methodology works, to be re-measured on a real multi-athlete set. And the numbers
-> vary run to run — the same input doesn't always give the same plan — which is
-> exactly the output-consistency limitation I quantify in the report."
+**On screen:** Chapter 5 of `main.pdf` (the confusion-matrix table and results).
 
-**On screen:** Chapter 4 of `main.pdf` (the confusion-matrix table + results).
+## 4:10–4:30 — What I learned + close
 
-> "Planned improvements: a real multi-athlete labelled set, the ACWR and
-> pace/heart-rate features that are currently designed but not yet built, OAuth
-> ingestion to replace CSV import, and a cross-model comparison. But the prototype
-> establishes what it needed to: the three-model orchestration is feasible end-to-end
-> on real architecture, and the evaluation methodology is operationalisable."
+> "The main thing I learned is that model choice is a genuine design variable, not just a cost
+> dial: moving the Coach from Haiku to Opus changed the system's *failure mode*, not just its
+> output quality. The whole project is open and auditable on GitHub. In short: a three-model,
+> role-specialised, schema-validated pipeline that catches unsafe coaching advice before it
+> ever reaches the user. Thanks for watching."
 
-**Close:** "Thanks for watching."
+**On screen:** the approved-plan result card, or the repo.
 
 ---
 
 ## Narration notes (accuracy)
 
-- The web demo runs the **true tiers** (Haiku/Opus/Sonnet) on your Anthropic key —
-  the pills and subtitle are accurate; no substitution caveat needed.
-- If you have NOT re-run the eval harness on the true tiers, the report's Chapter-4
-  numbers are still from the reproducible Haiku feasibility run — say "feasibility
-  figures" as above and don't quote a specific number that contradicts a live run.
-- Don't show the `.env` file or the API key on screen.
+- The web demo runs the **true tiers** (Haiku / Opus / Sonnet) on your Anthropic key — the
+  pills and subtitle are accurate; no substitution caveat needed for the live demo.
+- The dollar figures shown per call use Anthropic first-party pricing (Haiku $1/$5, Opus
+  $5/$25, Sonnet $3/$15 per million input/output tokens).
+- Chapter 5's headline numbers (e.g. classifier accuracy, 25% consistency) are true-tier runs
+  on the synthetic fixture — describe them as such; don't quote a number that contradicts what
+  a live run happens to show on camera.
+- Don't show the `.env` / `.env.local` file or the API key on screen.
 
 ## After recording
 
 1. Export as **.mp4** (H.264).
-2. Coursera assignment → **Question 2 → Add File** (the 6-point item) → upload.
+2. Coursera assignment → **Question 2 → Add File** (the video item) → upload.
 3. Tick the Honor Code box and Submit (only you can do this).
