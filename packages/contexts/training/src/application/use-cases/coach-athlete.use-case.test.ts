@@ -96,11 +96,11 @@ describe('CoachAthleteUseCase', () => {
   });
 
   it('emits stage-progress events for classify, each coach attempt, and each critic verdict', async () => {
-    const coach = new FakeCoachLlm(planWith('v1'));
-    const critic = new FakeCriticLlm([
-      PlanVerdict.rejected(['too much volume'], ['cut one session']),
-      PlanVerdict.accepted(),
-    ]);
+    const coach = new FakeCoachLlm(planWith('v1'), { inputTokens: 100, outputTokens: 50 });
+    const critic = new FakeCriticLlm(
+      [PlanVerdict.rejected(['too much volume'], ['cut one session']), PlanVerdict.accepted()],
+      { inputTokens: 30, outputTokens: 10 },
+    );
     const d = makeDeps(coach, critic);
     const useCase = new CoachAthleteUseCase(d.classifier, d.coach, d.critic, d.repo, d.runLog, d.clock);
     const events: CoachProgress[] = [];
@@ -131,5 +131,11 @@ describe('CoachAthleteUseCase', () => {
     const critic1 = events[3] as Extract<CoachProgress, { stage: 'critic' }>;
     expect(critic1.plan.sessions[0]!.focus).toBe('v1');
     expect(typeof critic1.tokens).toBe('number');
+
+    // Per-call token usage streamed so the UI can price each prompt.
+    const classified = events[0] as Extract<CoachProgress, { stage: 'classified' }>;
+    expect(classified.usage).toEqual({ inputTokens: 0, outputTokens: 0 });
+    expect(critic1.coachUsage).toEqual({ inputTokens: 100, outputTokens: 50 });
+    expect(critic1.criticUsage).toEqual({ inputTokens: 30, outputTokens: 10 });
   });
 });

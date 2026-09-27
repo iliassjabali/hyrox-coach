@@ -47,7 +47,7 @@ export class CoachAthleteUseCase implements CoachAthlete {
       id: c.id,
       type: c.type.value,
     }));
-    progress({ stage: 'classified', byType, perSession });
+    progress({ stage: 'classified', byType, perSession, usage: { ...classification.usage } });
 
     const cost: TokenUsage = { ...classification.usage };
     let attempts = 0;
@@ -79,6 +79,8 @@ export class CoachAthleteUseCase implements CoachAthlete {
         reasons: [...verdict.reasons],
         plan: toPlanDto(plan),
         tokens: cost.inputTokens + cost.outputTokens,
+        coachUsage: { ...coached.usage },
+        criticUsage: { ...reviewed.usage },
       });
 
       if (verdict.isAccepted) break;

@@ -9,6 +9,7 @@ export type CoachProgress =
       stage: 'classified';
       byType: Record<string, number>;
       perSession: { id: string; type: string }[];
+      usage: TokenUsage; // the Classifier (Haiku) call
     }
   | { stage: 'coaching'; attempt: number }
   | { stage: 'reviewing'; attempt: number }
@@ -18,7 +19,9 @@ export type CoachProgress =
       accepted: boolean;
       reasons: string[];
       plan: WeeklyPlanDto;
-      tokens: number;
+      tokens: number; // cumulative tokens so far
+      coachUsage: TokenUsage; // this attempt's Coach (Opus) call
+      criticUsage: TokenUsage; // this attempt's Critic (Sonnet) call
     };
 
 export interface CoachAthleteInput {
