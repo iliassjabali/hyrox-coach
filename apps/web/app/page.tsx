@@ -17,8 +17,15 @@ type PlanShape = {
   sessions: { day: number; type: string; focus: string }[];
 };
 
+type Usage = { inputTokens: number; outputTokens: number };
+
 type Progress =
-  | { stage: 'classified'; byType: Record<string, number>; perSession: { id: string; type: string }[] }
+  | {
+      stage: 'classified';
+      byType: Record<string, number>;
+      perSession: { id: string; type: string }[];
+      usage: Usage;
+    }
   | { stage: 'coaching'; attempt: number }
   | { stage: 'reviewing'; attempt: number }
   | {
@@ -28,7 +35,19 @@ type Progress =
       reasons: string[];
       plan: PlanShape;
       tokens: number;
+      coachUsage: Usage;
+      criticUsage: Usage;
     };
+
+// Anthropic first-party pricing, USD per 1M tokens (per the claude-api reference).
+const PRICING: Record<'Haiku' | 'Opus' | 'Sonnet', { in: number; out: number }> = {
+  Haiku: { in: 1, out: 5 }, // Classifier — claude-haiku-4-5
+  Opus: { in: 5, out: 25 }, // Coach — claude-opus-4-8
+  Sonnet: { in: 3, out: 15 }, // Critic — claude-sonnet-4-6
+};
+const priceUsd = (model: keyof typeof PRICING, u: Usage): number =>
+  (u.inputTokens * PRICING[model].in + u.outputTokens * PRICING[model].out) / 1_000_000;
+const fmtUsd = (n: number): string => `$${n.toFixed(4)}`;
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -75,9 +94,15 @@ export default function Home() {
   // Per-session labels stream in with the 'classified' event; hold them so the
   // training-data card can show what the Classifier made of each input session.
   const labels: Record<string, string> = {};
+  const coachUsageByAttempt: Record<number, Usage> = {};
+  let totalUsd = 0;
   for (const event of progress) {
     if (event.stage === 'classified') {
       for (const s of event.perSession) labels[s.id] = s.type;
+      totalUsd += priceUsd('Haiku', event.usage);
+    } else if (event.stage === 'critic') {
+      coachUsageByAttempt[event.attempt] = event.coachUsage;
+      totalUsd += priceUsd('Opus', event.coachUsage) + priceUsd('Sonnet', event.criticUsage);
     }
   }
 
@@ -187,7 +212,15 @@ export default function Home() {
             // While the Critic is reviewing, show a single live row; once its verdict
             // arrives the verdict row supersedes it.
             if (event.stage === 'reviewing' && !active) return null;
-            return <Step key={index} event={event} active={active} />;
+            let price: string | null = null;
+            if (event.stage === 'classified') price = `${fmtUsd(priceUsd('Haiku', event.usage))} · Haiku`;
+            else if (event.stage === 'coaching') {
+              const u = coachUsageByAttempt[event.attempt];
+              if (u) price = `${fmtUsd(priceUsd('Opus', u))} · Opus`;
+            } else if (event.stage === 'critic') {
+              price = `${fmtUsd(priceUsd('Sonnet', event.criticUsage))} · Sonnet`;
+            }
+            return <Step key={index} event={event} active={active} price={price} />;
           })}
         </div>
       )}
@@ -205,6 +238,9 @@ export default function Home() {
             </span>
             <span className={styles.metric}>
               <b>{result.cost.inputTokens + result.cost.outputTokens}</b> tokens
+            </span>
+            <span className={styles.metric}>
+              <b>{fmtUsd(totalUsd)}</b> total cost
             </span>
           </div>
 
@@ -225,7 +261,7 @@ export default function Home() {
   );
 }
 
-function Step({ event, active }: { event: Progress; active: boolean }) {
+function Step({ event, active, price }: { event: Progress; active: boolean; price: string | null }) {
   let dotClass = styles.dotDone;
   let icon: ReactNode = '✓';
   let role = '';
@@ -280,7 +316,8 @@ function Step({ event, active }: { event: Progress; active: boolean }) {
       <div className={styles.stepBody}>
         <div className={styles.stepTitle}>
           <span className={styles.stepRole}>{role}</span> — {title}
-          {tokens !== null && <span className={styles.stepTokens}>{tokens} tokens so far</span>}
+          {price && <span className={styles.stepPrice}>{price}</span>}
+          {tokens !== null && <span className={styles.stepTokens}>{tokens} tok total</span>}
         </div>
         {perSession && (
           <div className={styles.chips}>

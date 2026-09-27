@@ -368,6 +368,19 @@
   margin-bottom: 6px;
 }
 
+/* Per-prompt price in a step title */
+.stepPrice {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
 /* Running token count in a step title */
 .stepTokens {
   margin-left: 8px;
