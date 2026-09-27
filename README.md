@@ -5,10 +5,6 @@
 A personal AI coaching system for [Hyrox](https://hyrox.com) athletes that ingests
 training data (Strava / Garmin), reasons over it with a pipeline of specialised
 Claude models, and produces a validated weekly training plan.
-
-> CM3070 Final Project — University of London
-> Iliass Jabali (230586639) · Template: CM3020 Idea 1 — *Governing Multiple Models Around a Goal*
-
 ---
 
 ## What it does
