@@ -1,0 +1,91 @@
+% ==========================================================================
+% Chapter 5: Evaluation (target ~2100 words, max 2500)
+% New chapter for the draft report. Objective metrics primary (per
+% supervisory guidance banked in Ch1/Ch3); user study honestly scoped as
+% future work since Phase 5 (informed consent, recruitment, 4-week trial)
+% has not yet run.
+% ==========================================================================
+
+\chapter{Evaluation}
+\label{ch:evaluation}
+
+\section{Evaluation strategy}
+
+Following the same supervisory guidance recorded in Chapters~\ref{ch:introduction} and~\ref{ch:design}, this evaluation treats objective, repeatable metrics as the primary evidence and a live user trial as a supplementary activity that has not yet run. That ordering is now more than a stated intention: the objective-evaluation harness (Section~\ref{sec:harness}) is fully implemented and was re-run on the project's true design tiers --- Claude Haiku for the Classifier, Opus for the Coach, Sonnet for the Critic --- specifically for this chapter, replacing the Haiku-substituted feasibility figures reported in the preliminary report. The user trial (informed consent, recruitment, a four-week period, a Likert questionnaire) remains unstarted; Section~\ref{sec:eval-limitations} treats that honestly as a gap rather than glossing over it.
+
+Four activities make up the objective evaluation: classifier accuracy against a labelled set, output consistency across repeated runs, a Critic ablation, and a Coach prompt-variant ablation. Each is a small runnable script (\texttt{pnpm eval:*}) built on unit-tested pure metric functions, so the harness itself carries the same test-first discipline as the rest of the codebase (Section~\ref{sec:unit-testing}).
+
+\section{Unit testing and reliability as evaluation}
+\label{sec:unit-testing}
+
+Before turning to the four live-LLM activities, it is worth stating what unit testing already establishes, since it is itself a form of evaluation the assignment brief explicitly names. The training package carries 64 tests covering domain invariants, the orchestrator's retry and conflict-resolution logic, each adapter's mapping to and from its Zod schema, and the metric functions used below --- all written test-first and run without any network call. \texttt{tsc --noEmit} and the hexagonal-dependency ESLint rule both pass across every package. This does not evaluate the \emph{quality} of a given plan, which is what the live-LLM activities below address, but it does establish that the orchestration logic itself --- the part of the system this project claims as its technical contribution --- behaves correctly under the conditions unit tests can check: schema validation, retry bounds, and conflict-resolution branching.
+
+A second reliability data point belongs here rather than in Chapter~\ref{ch:implementation}, because it is evidence about robustness under real usage rather than a design decision: when the pipeline moved from the Haiku-only feasibility substitution to the true Opus/Sonnet tiers, Opus intermittently returned its \texttt{sessions} field double-stringified, which crashed the run until a targeted recovery step was added at the adapter boundary. That the failure was model-specific (Haiku never exhibited it) and format-specific (the plan content was valid; only its serialisation was wrong) is itself a small piece of evidence for the claim in Chapter~\ref{ch:design} that model choice is a first-class design variable, not merely a quality dial: swapping tiers changed the \emph{failure mode}, not just the output quality.
+
+\section{Objective evaluation harness}
+\label{sec:harness}
+
+\subsection{Classifier accuracy}
+
+The Classifier (Claude Haiku) was run against the same 16-session synthetic labelled set used in the preliminary report, chosen deliberately because it is committed to the repository and reproducible without exposing sensitive athlete data, which remains gitignored under informed consent. Overall accuracy was \textbf{56.25\%} (9 of 16), close to but slightly below the preliminary report's 62.5\% figure from an earlier run --- itself informative, since a several-point swing between two runs of the same labelled set on the same model is a small independent confirmation of the non-determinism quantified more directly by the consistency metric below.
+
+\begin{table}[H]
+\centering
+\caption{Classifier confusion matrix, true-tier re-run (rows = ground truth, columns = predicted).}
+\label{tab:confusion-draft}
+\begin{tabular}{lrrrr}
+\toprule
+ & \multicolumn{4}{c}{\textbf{Predicted}} \\
+\cmidrule(l){2-5}
+\textbf{Actual} & run & sled & burpees & mixed \\
+\midrule
+run     & \textbf{6} & 0 & 0 & 0 \\
+sled    & 0 & \textbf{0} & 3 & 1 \\
+burpees & 0 & 0 & \textbf{3} & 0 \\
+mixed   & 0 & 3 & 0 & \textbf{0} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The pattern from the preliminary report persists: \texttt{run} and \texttt{burpees} are classified perfectly, while \texttt{sled} and \texttt{mixed} are confused with each other and with \texttt{burpees} in every case. This is consistent with the synthetic fixture's known limitation --- \texttt{sled} and \texttt{burpees} sessions share short duration and elevated heart rate with no distance signal, leaving the Classifier no reliable feature to separate them on. It is a property of the fixture, not evidence against the architecture, but it is also exactly the kind of result that a small illustrative set produces and a genuine multi-athlete labelled set (Section~\ref{sec:eval-limitations}) is needed to resolve.
+
+\subsection{Output consistency}
+
+The full pipeline was run five times on the fixed history at the true design tiers. Four runs completed; one failed structured-output validation outright after exhausting its retry budget, and was recorded as a failure rather than silently degraded. Of the four completed runs, session-type stability (identical day-to-session-type assignment) was \textbf{25.0\%}, and full-plan stability (additionally requiring an identical session focus) was also \textbf{25.0\%} --- all four completed runs produced distinct plans; only one pair matched on session type. This closely matches the preliminary report's Haiku-only figure (also 25\% type-level recurrence), which suggests the low consistency is not an artefact of the weaker feasibility substitution but a property of the architecture as designed: the same input does not reliably produce the same plan.
+
+This is reported honestly as a limitation rather than minimised, because Chapters~\ref{ch:introduction} and~\ref{ch:design} both state that consistency, not peak quality, is what user trust in a coaching product depends on. It also motivates a concrete, scoped improvement discussed in Section~\ref{sec:eval-limitations} rather than a vague call for ``more testing.''
+
+\subsection{Critic ablation}
+
+The pipeline was run eight times on the same history at the true tiers, comparing the Coach's first draft --- the output a Critic-less pipeline would surface unchanged --- against the Critic-reviewed result. All eight runs completed with no schema failures. The Critic intervened on \textbf{every single run} (8/8, 100\%): it rejected the first draft outright in \textbf{37.5\%} of runs and forced at least one revision in the remaining \textbf{62.5\%}, at a mean of \textbf{2.5} Coach attempts per run before acceptance or exhaustion of the retry budget.
+
+This is the strongest single result in the objective evaluation and directly answers the ablation question posed in Chapter~\ref{ch:introduction}: adding the Critic is not adding latency for its own sake, since with the true-tier Coach every unreviewed first draft would have reached the user unchanged, and none did. Chapter~\ref{ch:implementation}, Figure~\ref{fig:live-run}, gives one concrete instance of this pattern with the Critic's actual cited reasons (an unsafe volume jump, no rest day, a three-day high-intensity block, an unsupported race simulation, and an abrupt strength-modality introduction) and the resulting revision, which is worth reading alongside this aggregate figure: the 100\% intervention rate is not five near-identical rejections but a Critic engaging with materially different failure modes across runs.
+
+\subsection{Prompt-variant ablation}
+
+Three Coach system-prompt variants --- minimal, the default Hyrox-specific prompt, and a safety-augmented variant --- were compared at the true design tiers, with each variant given a single Coach$\to$Critic attempt and no revision opportunity (unlike the ablation above). All twelve runs completed with no failures. The Critic's approval rate was \textbf{0\% for every variant}: minimal 0/4, Hyrox-specific 0/4, safety-augmented 0/4.
+
+Read in isolation this looks like a null result, but read against the Critic-ablation figures above it is informative rather than uninformative. The two evaluations differ in exactly one respect --- whether the Coach gets to revise --- and the outcome tracks that difference closely: with no revision opportunity, approval is 0\% regardless of system-prompt wording; with up to three attempts and Critic feedback fed back into the prompt, 62.5\% of runs are eventually accepted. The safety-augmented variant's prompt text did not measurably change the Critic's judgement of a first draft, which suggests the Critic's standard is being met by the \emph{interaction} between Coach and Critic across revisions rather than by any single Coach prompt getting it right unaided. This reframes the ablation's purpose for the final report: the comparison worth extending is not three static prompts against a strict one-shot Critic, but how quickly (in how many attempts) each variant converges to an accepted plan once revision is allowed.
+
+\section{Cost and latency}
+
+Cost is tracked as a first-class metric rather than reported as an afterthought, per the design commitment in Chapter~\ref{ch:design}. The eight-run Critic ablation and the accepted plan shown in Chapter~\ref{ch:implementation} give representative figures: the single live run illustrated there cost 8{,}282 tokens end to end across two Coach attempts and two Critic reviews. The five-run consistency evaluation totalled 61{,}326 input and 18{,}412 output tokens across its four completed runs, giving a per-completed-run average in the same order of magnitude. At current Claude API pricing this places a single planning cycle, including one Critic-driven revision, well under \$0.10 --- cheap enough that the per-revision cost is not a barrier to the reject/revise loop the architecture depends on, which matters because Section~\ref{sec:harness} shows that loop firing on the majority of runs, not the minority.
+
+\section{Critical evaluation against the project's objectives}
+
+Chapter~\ref{ch:introduction} set four objectives. The first --- a feature-engineering layer converting raw sessions into structured training-load features --- is partially met: the Banister TRIMP score is implemented and unit-tested, but pace/heart-rate zones and ACWR remain specified, not built, so the Coach currently reasons over duration and heart rate rather than the richer load features the design chapter anticipates. The second objective --- a three-agent orchestration pipeline with schema-validated hand-offs and explicit conflict resolution --- is substantially met, and is the best-evidenced claim in this report: Chapter~\ref{ch:implementation} shows the orchestrator's code and a real reject/revise/approve cycle, and this chapter's Critic ablation shows that cycle firing on 100\% of true-tier runs. The third objective --- objective evaluation as the primary signal, with a supplementary user study --- is half complete: the objective harness is built, run on the true tiers, and reported above with honest, sometimes unflattering, numbers; the user study has not started. The fourth objective --- critically situating the system against the orchestration and fitness-coaching literature --- is addressed in Chapter~\ref{ch:lit-review} and revisited briefly below.
+
+One further comparison worth making explicitly: the schema described in Chapter~\ref{ch:design} specifies seven session labels, an \texttt{intensityZone} enum, and a \texttt{durationMinutes} field, while the schema actually implemented and evaluated above uses four labels (\texttt{run}, \texttt{sled}, \texttt{burpees}, \texttt{mixed}) and a free-text \texttt{focus} field in place of a structured intensity zone. This was a deliberate simplification made during implementation, not an oversight discovered late: a smaller, denser label space is easier to evaluate meaningfully on a small illustrative set, and the free-text focus field let the Coach and Critic communicate nuance (``technique-focused,'' ``low intensity, form priority'') that a fixed five-level enum would have discarded. The trade-off is that the implemented schema is less structured than the one the design chapter's Zod listing shows, which weakens the ``schema as control-flow primitive'' argument slightly for anything downstream that would want to reason about numeric intensity rather than free text. This is exactly the kind of gap this evaluation chapter is meant to surface rather than paper over.
+
+\section{Limitations and what a real trial requires}
+\label{sec:eval-limitations}
+
+Four limitations are acknowledged directly, each with what closing it would require rather than a vague statement of future work.
+
+\emph{Synthetic, single-set data.} All figures above come from one 16-session synthetic fixture, chosen for reproducibility without exposing consented athlete data. Closing this requires the 50-plus-session multi-athlete labelled set specified in Chapter~\ref{ch:design}, which depends on athlete recruitment that has not yet started.
+
+\emph{No user trial.} Phase 5 of the project plan --- informed consent, recruitment of five to ten Hyrox athletes, a four-week trial, and a post-trial Likert questionnaire --- has not run. The objective evaluation above stands on its own per the supervisory guidance to treat it as primary, but it cannot substitute for the trust and usefulness signal only real athletes over real weeks can provide.
+
+\emph{Low output consistency.} The 25\% stability figure is a genuine architectural finding, not a fixture artefact (it closely matches the earlier Haiku-only run). The most direct next step is to constrain the Coach's temperature/sampling behaviour and re-test, or to add a consistency-specific rule to the Critic's prompt (e.g. penalising a plan that diverges structurally from the athlete's two or three most recent accepted plans without a stated reason), and re-run this same metric to quantify the effect.
+
+\emph{Single model family.} All three roles use Claude models, so the role-specialisation question raised in Chapter~\ref{ch:lit-review} is answered only within one model family. A cross-family variant of the Critic ablation --- for instance, substituting a GPT- or open-weights model into the Coach role and re-running the same eight-run ablation --- is a bounded, well-specified experiment for the final report and would directly extend this chapter's strongest result.

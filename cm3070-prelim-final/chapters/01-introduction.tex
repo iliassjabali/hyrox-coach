@@ -17,13 +17,13 @@ The present project meets these requirements as follows. Three pre-trained model
 
 \section{Motivation and need}
 
-Hyrox is a hybrid-fitness race comprising 8\,km of running interspersed with 8 functional workout stations such as sled pushes, burpee broad jumps, and wall balls. It is currently among the fastest-growing fitness sports globally, with reported participation more than doubling year on year since 2022 \cite{hyrox_growth}. The athlete population is expanding rapidly while access to expert coaching has not kept pace.
+Hyrox is a hybrid-fitness race comprising 8\,km of running interspersed : Featuring eight compound movement stations such as sled pushes, explosive burpees, and wall ball throws. It is currently among the fastest-growing fitness sports globally: reported participation grew roughly tenfold over the five years to 2024, and season-on-season figures show growth continuing, with the 2025/26 season projected to reach 1.5 million athletes across 105 races, up from around 570{,}000 athletes across 74 races the season before \cite{hyrox_growth}. The athlete population is expanding rapidly while access to expert coaching has not kept pace.
 
-Athletes currently choose between two unsatisfactory options. The first is following a generic static training plan distributed as a PDF or spreadsheet; such plans ignore the athlete's individual data entirely and treat training as open-loop control over an inherently stochastic biological system. The second is paying a human coach, typically between EUR\,150 and EUR\,300 per month, which is inaccessible to most amateur athletes. Meanwhile, the athlete's own wearables already record everything a coach would need to reason about: heart-rate variability, sleep, resting heart rate, acute and chronic load, pace distributions, and perceived exertion. The data exists; the missing layer is intelligent, individualised reasoning over it.
+Athletes currently choose between two unsatisfactory options: a generic static plan that ignores their data entirely, or a human coach at EUR\,150--300 per month, inaccessible to most amateurs. Meanwhile their wearables already record everything a coach needs: heart-rate variability, sleep, load, pace, and perceived exertion. The data exists; the missing layer is intelligent, individualised reasoning over it.
 
 Recent advances in large language models suggest that this reasoning layer is now technically feasible at low cost. However, naively wrapping a single chat model around a system prompt has documented failure modes: hallucinated training volumes, inconsistent recommendations between sessions, and an inability to handle the multi-modal nature of hybrid sport, in which running load and strength load interact in non-additive ways. A more rigorous approach is required, and that is what this project proposes.
 
-\section{Goal and objectives}
+\section{Desired outcome and implementation steps}
 
 This project sets out to determine whether a multi-agent orchestration of distinct pre-trained large language models, grounded in structured biometric features and constrained by schema validation, can produce coaching guidance that is consistent, plausible, and useful to Hyrox athletes.
 
@@ -36,10 +36,10 @@ To meet this aim, the project pursues four objectives:
   \item Critically compare the resulting system to both the multi-agent LLM orchestration literature and existing AI-based fitness applications, articulating how the architecture differs and what gap it addresses.
 \end{enumerate}
 
-\section{Scope and boundaries}
+\section{Areas of focus and out-of-scope items}
 
 The system is deliberately scoped. It targets a single sport (Hyrox), a single athlete population (consenting healthy adults), and read-only ingestion of pre-existing wearable data. It produces training guidance and never medical or clinical claims; a permanent disclaimer is presented in the user interface. The user study is small in scale (five to ten participants) and supplementary; the primary evaluation is offline and objective. These constraints reflect both feasibility for a single student over the project duration and direct supervisory guidance.
 
-\section{Structure of this report}
+\section{Report format and section hierarchy}
 
-The rest of this preliminary report proceeds as follows. Chapter~\ref{ch:lit-review} surveys two strands of prior work: multi-agent LLM orchestration systems from recent research, and existing AI-based fitness coaching applications. Each is critiqued and the two are then synthesised to identify the gap this project addresses. Chapter~\ref{ch:prototype} turns to the feature prototype. Chapter~\ref{ch:design} comes first, laying out the system design: it defines the evaluation strategy and work plan, specifies the schemas, maps each agent to its role, and details the orchestration architecture. Together they answer what this project takes on.
+The rest of this report proceeds as follows. Chapter~\ref{ch:lit-review} surveys two strands of prior work: multi-agent LLM orchestration systems from recent research, and existing AI-based fitness coaching applications. Each is critiqued and the two are then synthesised to identify the gap this project addresses. Chapter~\ref{ch:design} lays out the system design: the evaluation strategy and work plan, the schemas, the mapping of each agent to its role, and the orchestration architecture. Chapter~\ref{ch:implementation} describes the implementation built against that design, including a documented reliability fix and a live walk-through of the streaming interface. Chapter~\ref{ch:evaluation} reports the objective evaluation --- classifier accuracy, output consistency, and Critic and prompt-variant ablations, all re-run on the project's true design tiers --- and critically assesses the project against the four objectives stated above. Chapter~\ref{ch:conclusion} closes with a summary and the concrete next steps that follow from the evaluation.

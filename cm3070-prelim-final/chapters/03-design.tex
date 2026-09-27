@@ -112,6 +112,8 @@ export const CriticOutput = z.object({
 
 Schema validation is not a presentation concern; it is a control-flow primitive. If the Classifier returns a label outside the enum, the orchestrator does not pass that output to the Coach. Instead, it retries with a more explicit prompt suffix and ultimately fails loudly rather than silently degrading.
 
+The schemas above state the original design. During implementation the label set was deliberately narrowed to four values (\texttt{run}, \texttt{sled}, \texttt{burpees}, \texttt{mixed}) and \texttt{intensityZone}/\texttt{durationMinutes} were replaced by a free-text \texttt{focus} field, so that a small illustrative evaluation set could discriminate meaningfully between labels and so the Coach and Critic could exchange qualitative nuance a fixed enum would discard. This trade-off, and its consequence for how much structure the schema can now enforce, is evaluated critically in Chapter~\ref{ch:evaluation}.
+
 \section{Orchestrator design}
 
 The orchestrator is the project's main technical contribution and a small TypeScript module with three responsibilities. First, \emph{routing}: it calls Classifier $\to$ Coach $\to$ Critic in sequence, threading each agent's typed output into the next. Second, \emph{retries}: on a schema validation failure, it retries with an explicit ``the previous output did not match the required schema; correct it'' suffix, up to a small bounded number of attempts (currently three). Third, \emph{conflict resolution}: if the Critic returns \texttt{reject}, the orchestrator does not surface the Coach's original output to the user; if the Critic returns \texttt{revise} with a \texttt{revisedPlan}, the orchestrator surfaces the revision and records both versions for later evaluation.

@@ -3,7 +3,7 @@
 % Structure: research question, branch A, branch B, synthesis & bridge
 % ==========================================================================
 
-\chapter{Review of Related Work}
+\chapter{Background research and related initiatives}
 \label{ch:lit-review}
 
 \section{Research question and scope of review}
@@ -18,7 +18,7 @@ Two branches of literature are directly relevant. The first is the recent body o
 
 \section{Branch A: Multi-agent LLM orchestration}
 
-\subsection{Reasoning-and-acting in language agents}
+\subsection{Reasoning frameworks and actionable outputs in LLMs}
 
 ReAct, proposed by Yao et al.~\cite{yao2022react}, showed that weaving chain-of-thought steps together with tool calls yields large improvements over either technique alone on knowledge-intensive tasks. The contribution is foundational: it established that a language model can productively be treated as a reasoning controller that issues tool calls, rather than as a black-box answer generator. ReAct's evaluation, however, is concentrated on factual question-answering benchmarks such as HotpotQA and FEVER, and on agent benchmarks such as ALFWorld and WebShop. The original work uses a single model for both reasoning and acting, and offers no guidance on when to delegate distinct reasoning roles to distinct models. It also makes no provision for schema-validated structured outputs, which are central to any system operating in a domain where downstream consumers (other agents, user interfaces, safety checks) require reliable contracts. These two omissions --- role specialisation and structured output validation --- are directly addressed by the present project.
 
@@ -40,9 +40,9 @@ Three weaknesses recur across the orchestration literature reviewed above. First
 
 \section{Branch B: AI-based fitness coaching}
 
-\subsection{Platform-led static training plans}
+\subsection{Platform-led training plans}
 
-Strava is the dominant social fitness platform and offers training plans as a paid feature. These plans are essentially static templates, parameterised by goal distance and target time, with no continuous adaptation to the athlete's recorded data~\cite{strava_plans}. The strength of the Strava approach is reach and data availability: more athletes use Strava than any single device manufacturer's app. The weakness is the absence of a feedback loop. From a control-systems perspective, Strava's training plans are open-loop control over an inherently stochastic biological process, and the sports-science literature has long shown that closed-loop adaptive approaches outperform open-loop ones on equivalent populations~\cite{busso2003}. The present project closes that loop: the Coach agent receives the athlete's actual recent data on every planning cycle.
+Strava is the dominant social fitness platform. Its own training-plan offering has changed materially since the preliminary report was written: in April 2025 Strava announced its acquisition of Runna, a personalised running-training app, and now surfaces Runna-generated plans rather than a purely static, goal-and-date-parameterised template~\cite{strava_runna}. This is a genuine strength --- Runna's plans adapt to logged performance and schedule --- but the adaptation is confined to a single modality, running, which is precisely the limitation this review returns to across every product surveyed below. The strength of the Strava approach remains reach and data availability: more athletes use Strava than any single device manufacturer's app. Its weakness, even post-acquisition, is that closed-loop adaptation is offered for running only; a Hyrox athlete's strength and sled sessions receive no comparable treatment. The sports-science literature has long shown that closed-loop adaptive approaches outperform open-loop ones on equivalent populations~\cite{busso2003}, and the present project closes that loop for the specific, currently unaddressed case of hybrid-sport training: the Coach agent receives the athlete's actual recent data, across all logged modalities, on every planning cycle.
 
 \subsection{Adaptive coaching from wearables}
 
@@ -50,7 +50,7 @@ Garmin Coach, supported by Firstbeat analytics, represents the state of the art 
 
 \subsection{AI-driven coaching startups}
 
-A more recent cohort of startups --- including Humango and Athletica --- explicitly markets AI-driven adaptive coaching. Published technical material is sparse, but where available the load models remain TSS-derived and the architectures appear to be single-model rule-augmented pipelines~\cite{humango,athletica}. These products are closed-source subscriptions, which is a legitimate commercial choice but limits academic critique. The architectural pattern they reveal --- a single LLM augmented by heuristic guardrails --- is precisely the pattern the present project departs from. Multiple distinct models in distinct roles, with explicit critique as a separate step, is a deliberately different architecture.
+A more recent cohort of startups --- including Humango and Athletica --- explicitly markets AI-driven adaptive coaching. Humango remains single-modality, endurance-focused. Athletica has since extended its supported-sport list to include Hyrox alongside running, triathlon, cycling, and rowing~\cite{humango,athletica}, which means the sport-coverage gap identified in the preliminary report no longer holds against this specific competitor and the critique must be sharpened rather than repeated unchanged. Published technical material for both remains sparse, but where available the architecture is a single conversational AI coach analysing wearable data and suggesting adjustments, not a disclosed multi-model pipeline with an explicit, separately-reasoning critique stage; Athletica's own documentation states the coach ``does not automatically modify your training'' without human confirmation, which is a design choice for user control but also evidence that verification, where it exists, is manual rather than architectural. Both products are closed-source subscriptions, which is a legitimate commercial choice but limits academic critique to what public documentation permits. The gap the present project addresses is therefore not merely ``no product covers Hyrox'' --- Athletica now does --- but that no covering product is open, auditable, or built on role-specialised models with a schema-validated, independently-reasoning critique step; that architectural and evaluation gap, not sport coverage alone, is what the rest of this review substantiates.
 
 \subsection{Generic LLM coaching applications}
 
@@ -58,7 +58,7 @@ A large number of consumer apps now wrap a single general-purpose chat model in 
 
 \subsection{The hybrid-sport gap}
 
-Across the fitness branch, three gaps stand out specifically for Hyrox. First, all major adaptive systems are single-modality (run, bike, swim), and the running-derived load models under-represent strength work. Second, none of the commercial products are open or auditable, which makes them poor scientific baselines and difficult to critique on methodological rather than product grounds. Third, none combines transparent and well-grounded load modelling with the structured-reasoning advantages of recent LLM orchestration work.
+Across the fitness branch, three gaps stand out specifically for Hyrox, revised here from the preliminary report to reflect that Hyrox is no longer entirely without commercial coverage: Athletica now lists it as a supported sport. First, coverage does not equal a well-grounded load model: the major running-derived and TSS-derived systems still under-represent strength and sled work even where a Hyrox mode has been added, because the underlying training-load mathematics was not designed for it. Second, none of the commercial products, including Athletica, are open or auditable --- their coaching logic, whatever its internal structure, is not published, which makes them poor scientific baselines and difficult to critique on methodological rather than product grounds. Third, none combines transparent, well-grounded load modelling with the structured-reasoning and explicit-critique advantages of recent LLM orchestration work; where a critique or safety check exists, as in Athletica, it is a manual user-confirmation step rather than a second model reasoning independently over the plan. The present project's gap is therefore architectural and evaluative, not a claim that no product has ever mentioned Hyrox.
 
 \section{Synthesis and bridge to the project}
 

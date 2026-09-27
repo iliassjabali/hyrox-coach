@@ -1,0 +1,125 @@
+% ==========================================================================
+% Chapter 4: Implementation (target ~1900 words, max 2000)
+% Draft-report chapter. Expands the preliminary report's feature-prototype
+% chapter into a description of the implementation to date, in the style of
+% the topic 6 peer review: algorithms/techniques, key code, visual results.
+% ==========================================================================
+
+\chapter{Implementation}
+\label{ch:implementation}
+
+\section{From prototype to system}
+
+The preliminary report described a feature prototype whose purpose was narrow: show that three distinct Claude models, wired together behind schema-validated agent roles, could be orchestrated end to end on a Haiku-only feasibility substitution, since the available model gateway tier at the time did not grant paid Opus or Sonnet access. Since then the prototype has grown into a system with persisted state, the true design-tier models, a documented reliability fix for a real production-shaped failure, and a live streaming user interface. This chapter describes that implementation: the algorithms and techniques used, the most important parts of the code, and a visual walk-through of a real, unedited pipeline run.
+
+\section{Architecture in practice}
+
+The system is a hexagonal TypeScript monorepo (Turborepo\,+\,pnpm), matching the architecture set out in Chapter~\ref{ch:design}. The \texttt{@hyrox/training} bounded context is layered into \texttt{domain} (pure types and invariants, no external imports), \texttt{application} (use cases and the ports they depend on), and \texttt{infrastructure} (adapters implementing those ports: the three Anthropic LLM adapters, the Drizzle/libSQL repositories, the CSV parser, the system clock). The dependency rule --- domain imports nothing external, application imports domain only --- is not a convention left to discipline; it is enforced mechanically by a custom ESLint rule (\texttt{@hyrox/config/eslint/hexagonal.js}) that fails the build on violation. A composition root in \texttt{@hyrox/trpc} wires the concrete adapters into the use case and exposes it to the Next.js frontend (\texttt{apps/web}) through a single tRPC procedure, so the web layer never imports an infrastructure adapter directly.
+
+\section{The orchestrator: classify, coach, critique, retry}
+
+The orchestrator described architecturally in Chapter~\ref{ch:design} is, concretely, the \texttt{CoachAthleteUseCase} class shown in Listing~\ref{lst:orchestrator}. It is deliberately small: a single bounded loop threading three ports (\texttt{ClassifierLlm}, \texttt{CoachLlm}, \texttt{CriticLlm}) with no framework in between.
+
+\begin{lstlisting}[language=TypeScript, caption={The orchestrator's central loop --- Coach and Critic alternate until the Critic accepts or the attempt budget is exhausted, with the Critic's reasons fed back into the next Coach attempt as revision guidance.}, label={lst:orchestrator}]
+while (attempts < maxAttempts) {
+  attempts += 1;
+  const coached = await this.coach.generatePlan({
+    sessions: workouts,
+    weekStartingOn: input.weekStartingOn,
+    ...(feedback.length > 0 ? { criticFeedback: feedback } : {}),
+  });
+  plan = coached.plan;
+
+  const reviewed = await this.critic.review({ plan, sessions: workouts });
+  verdict = reviewed.verdict;
+  progress({ stage: 'critic', attempt: attempts,
+             accepted: verdict.isAccepted, reasons: [...verdict.reasons] });
+
+  if (verdict.isAccepted) break;
+  feedback = [...verdict.reasons, ...verdict.suggestedFixes];
+}
+\end{lstlisting}
+
+Three design choices in this listing are worth drawing out. First, conflict resolution is data, not control flow: a rejected plan does not raise an exception or branch the caller's logic; it simply becomes the \texttt{criticFeedback} input to the next Coach call, so ``the Critic disagreed'' and ``this is the Coach's first attempt'' are handled by the same code path. Second, the loop is bounded (\texttt{maxAttempts}, default three) so a Critic that never accepts cannot hang a request --- the use case returns the last attempt's verdict, unaccepted, rather than looping forever. Third, an \texttt{onProgress} callback fires at each stage transition; this is the seam the streaming UI (Section~\ref{sec:streaming-ui}) attaches to, so the same orchestrator serves both a blocking call and a live-updating one without duplication.
+
+\section{Resilience: recovering from malformed structured output}
+
+A production-shaped failure surfaced once the pipeline moved from the Haiku-only feasibility substitution to the true design tiers: Claude Opus intermittently returned the Coach's \texttt{sessions} field as a JSON \emph{string} --- \texttt{\{"sessions": "[\{...\}]"\}} --- rather than as an array, which failed Zod validation outright and crashed the run. Claude Haiku never exhibited this behaviour in the same harness, so the fault was specific to the stronger model's output formatting, not to the schema or the prompt.
+
+The fix is deliberately placed in the infrastructure adapter, not the prompt, because it is a serialisation-format recovery rather than a reasoning problem: a \texttt{z.preprocess} step detects a string \texttt{sessions} field, attempts to parse it, and substitutes the parsed array before the schema proper runs (Listing~\ref{lst:preprocess}). This is combined with a bounded \texttt{retryOnError} wrapper (Listing~\ref{lst:retry}) around the whole structured-output call, which retries only on a schema-generation failure and re-throws immediately on anything else, so a genuinely invalid response still surfaces as an error rather than being silently retried forever.
+
+\begin{lstlisting}[language=TypeScript, caption={Recovering Opus's occasional double-stringified \texttt{sessions} field before Zod validation runs.}, label={lst:preprocess}]
+const schema = z.preprocess((value) => {
+  const candidate = value as { sessions?: unknown } | null;
+  if (candidate && typeof candidate.sessions === 'string') {
+    try {
+      const parsed = JSON.parse(candidate.sessions);
+      const array = Array.isArray(parsed) ? parsed : parsed?.sessions;
+      if (Array.isArray(array)) return { sessions: array };
+    } catch { /* fall through to normal validation */ }
+  }
+  return value;
+}, z.object({ sessions: z.array(sessionItem) }));
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, caption={Bounded retry, scoped to schema-generation failures only.}, label={lst:retry}]
+export async function retryOnError<T>(fn: () => Promise<T>, options = {}) {
+  const attempts = Math.max(1, options.attempts ?? 3);
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try { return await fn(); }
+    catch (error) {
+      if (attempt === attempts - 1 || !options.shouldRetry?.(error)) throw error;
+    }
+  }
+}
+\end{lstlisting}
+
+This episode is included because it is evidence for a claim made in Chapter~\ref{ch:design}: keeping reliability logic in the orchestrator and adapters, with the agents themselves staying pure (prompt in, validated object out), meant the fix required no prompt change and no change to any agent's contract --- only to the boundary where an agent's raw output is turned into a domain object.
+
+\section{Model resolution and cost as a first-class metric}
+
+Two Claude access paths exist: the Vercel AI Gateway (routed model slugs, useful for shared or free-tier credit) and a direct Anthropic Console key (needed for the true Opus and Sonnet tiers, since the gateway's available tier granted Haiku only). A small resolution seam picks the path based on which credential is present in the environment, with a per-role override (\texttt{EVAL\_COACH\_MODEL}, \texttt{EVAL\_CRITIC\_MODEL}) that lets the evaluation harness deliberately substitute a cheaper model for a zero-cost run without touching the production model configuration. Every Coach and Critic call returns token usage, which the orchestrator accumulates across the retry loop and persists via a \texttt{RunLog} port --- cost and attempt count are recorded per run, not computed after the fact, so they can be surfaced directly in the UI (Section~\ref{sec:streaming-ui}) and in the evaluation figures of Chapter~\ref{ch:evaluation}.
+
+\section{Persistence}
+
+Session history and run logs are written through \texttt{DrizzleSessionRepository} and \texttt{DrizzleRunLog}, both implementing ports defined in the application layer against a SQLite/libSQL database via \texttt{@hyrox/db}. Because the repositories sit behind ports, moving to managed Postgres for the planned user trial is a dialect swap in the infrastructure layer with no change to the orchestrator or the domain model --- exactly the isolation the hexagonal architecture is intended to buy.
+
+\section{Streaming demo and UI}
+\label{sec:streaming-ui}
+
+The Next.js frontend calls a single Server-Sent Events route (Listing~\ref{lst:sse}) that runs the same \texttt{CoachAthleteUseCase} and forwards each \texttt{onProgress} event to the browser as it happens, so the UI renders the pipeline live rather than as one long blocking spinner.
+
+\begin{lstlisting}[language=TypeScript, caption={The streaming route: the orchestrator's \texttt{onProgress} callback is forwarded directly onto the SSE stream.}, label={lst:sse}]
+const result = await ctx.training.coachAthlete.execute({
+  sessions, weekStartingOn,
+  onProgress: (event) => send({ kind: 'progress', event }),
+});
+send({ kind: 'result', result });
+\end{lstlisting}
+
+Figure~\ref{fig:live-run} records an unedited run of this interface against the committed synthetic fixture. The Coach's first draft (attempt 1) proposes seven consecutive training days including a full Hyrox simulation with no established base; the Critic rejects it with five specific, cited reasons (an unsafe volume jump, no rest day, a three-day high-intensity block, an unsupported race simulation, and an unprepared introduction of sled work). The orchestrator feeds those reasons back to the Coach, which redrafts a materially different four-session plan with an explicit rest day and a technique-focused sled introduction; the Critic accepts it on attempt 2. The run took 8{,}282 tokens end to end. This is not a constructed example: it is the literal output of one live click on the deployed interface, and it is the clearest available evidence that the Critic stage does substantive work rather than adding latency for its own sake --- a claim examined quantitatively, across many runs, in Chapter~\ref{ch:evaluation}.
+
+\begin{table}[H]
+\centering
+\caption{Live pipeline run recorded from the streaming UI (unedited). The Critic rejects the first draft with five cited safety reasons and accepts the Coach's revision on attempt 2.}
+\label{fig:live-run}
+\begin{tabularx}{\textwidth}{@{}l l X@{}}
+\toprule
+\textbf{Stage} & \textbf{Result} & \textbf{Detail} \\
+\midrule
+Classifier (Haiku) & \checkmark & Labelled sessions --- 1$\times$ run, 2$\times$ mixed \\
+Coach (Opus), attempt 1 & \checkmark & Drafted a 7-day plan including a full Hyrox simulation \\
+Critic (Sonnet), attempt 1 & $\times$ Revision requested & Unsafe volume jump; no rest day; 3-day high-intensity block (Days 3--5); unsupported race simulation; abrupt sled introduction \\
+Coach (Opus), attempt 2 & \checkmark & Redrafted: 4 sessions, explicit rest day, technique-focused sled intro \\
+Critic (Sonnet), attempt 2 & \checkmark Accepted & Mon run, Wed sled (technique), Fri mixed (partial simulation, low intensity), Sun optional recovery \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Testing and engineering discipline}
+
+The training package carries 64 unit tests across the domain, application, and infrastructure layers, written test-first throughout (red before green for every use case and adapter). Live LLM calls are deliberately excluded from this suite --- adapters are tested against fakes at the port boundary --- and are instead exercised on demand through the \texttt{pnpm eval:*} scripts described in Chapter~\ref{ch:evaluation}, which keeps the unit suite fast, deterministic, and network-free while still giving the orchestration logic real integration coverage. \texttt{tsc --noEmit} and ESLint (including the hexagonal dependency-rule check) both run clean across every package.
+
+\section{What remains}
+
+Three items from the design are not yet built. Feature engineering currently computes only the Banister TRIMP score; pace/heart-rate zones and the acute-to-chronic workload ratio are specified but not implemented, so the Coach currently reasons over raw session duration and heart rate rather than derived training-load features. Ingestion is CSV-based rather than live Strava/Garmin OAuth. All three roles use one model family (Claude), so the role-specialisation question is not yet probed across families. Each is discussed as a limitation, with its evaluation consequence, in Chapter~\ref{ch:evaluation}.
