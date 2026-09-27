@@ -6,7 +6,7 @@
 % has not yet run.
 % ==========================================================================
 
-\chapter{Evaluation}
+\chapter{Evaluation (2118/2500 words)}
 \label{ch:evaluation}
 
 \section{Evaluation strategy}
@@ -24,6 +24,27 @@ A second reliability data point belongs here rather than in Chapter~\ref{ch:impl
 
 \section{Objective evaluation harness}
 \label{sec:harness}
+
+\subsection{Metric definitions}
+\label{sec:metric-defs}
+
+The metrics used below are defined here explicitly, in response to reviewer feedback requesting formulas for the evaluation criteria. For $N$ labelled sessions with ground-truth types $y_i$ and predicted types $\hat{y}_i$, classifier accuracy is the fraction correctly classified:
+\[
+\mathrm{accuracy} = \frac{1}{N}\sum_{i=1}^{N}\mathbf{1}\!\left[\hat{y}_i = y_i\right].
+\]
+Output consistency over $R$ completed runs, each summarised by a plan signature $s_r$, is the share of runs matching the most common (modal) signature:
+\[
+\mathrm{consistency} = \frac{1}{R}\,\max_{s}\,\bigl|\{\, r : s_r = s \,\}\bigr|,
+\]
+so a value of $1$ means every run produced the identical plan and $1/R$ that all runs differed. The two training-load features are defined as follows. Banister TRIMP for a session of $d$ minutes at heart-rate reserve $\mathrm{HRr} = (\mathrm{HR}_{\mathrm{avg}} - \mathrm{HR}_{\mathrm{rest}}) / (\mathrm{HR}_{\mathrm{max}} - \mathrm{HR}_{\mathrm{rest}}) \in [0,1]$ is
+\[
+\mathrm{TRIMP} = d \cdot \mathrm{HRr} \cdot 0.64\, e^{\,1.92\,\mathrm{HRr}},
+\]
+and the acute:chronic workload ratio compares the mean daily load over the last seven days with the mean over the last twenty-eight:
+\[
+\mathrm{ACWR} = \frac{\tfrac{1}{7}\sum_{k=t-6}^{t} L_k}{\tfrac{1}{28}\sum_{k=t-27}^{t} L_k},
+\]
+where $L_k$ is the summed TRIMP on day $k$ and $t$ is the current day; values in the range ${\sim}0.8$--$1.3$ are commonly regarded as a balanced progression, with higher ratios flagging a spike in acute load.
 
 \subsection{Classifier accuracy}
 
@@ -59,7 +80,7 @@ This is reported honestly as a limitation rather than minimised, because Chapter
 
 The pipeline was run eight times on the same history at the true tiers, comparing the Coach's first draft --- the output a Critic-less pipeline would surface unchanged --- against the Critic-reviewed result. All eight runs completed with no schema failures. The Critic intervened on \textbf{every single run} (8/8, 100\%): it rejected the first draft outright in \textbf{37.5\%} of runs and forced at least one revision in the remaining \textbf{62.5\%}, at a mean of \textbf{2.5} Coach attempts per run before acceptance or exhaustion of the retry budget.
 
-This is the strongest single result in the objective evaluation and directly answers the ablation question posed in Chapter~\ref{ch:introduction}: adding the Critic is not adding latency for its own sake, since with the true-tier Coach every unreviewed first draft would have reached the user unchanged, and none did. Chapter~\ref{ch:implementation}, Figure~\ref{fig:live-run}, gives one concrete instance of this pattern with the Critic's actual cited reasons (an unsafe volume jump, no rest day, a three-day high-intensity block, an unsupported race simulation, and an abrupt strength-modality introduction) and the resulting revision, which is worth reading alongside this aggregate figure: the 100\% intervention rate is not five near-identical rejections but a Critic engaging with materially different failure modes across runs.
+This is the strongest single result in the objective evaluation and directly answers the ablation question posed in Chapter~\ref{ch:introduction}: adding the Critic is not adding latency for its own sake, since with the true-tier Coach every unreviewed first draft would have reached the user unchanged, and none did. Chapter~\ref{ch:implementation}, Figure~\ref{fig:live-run}, gives one concrete instance of this pattern with the Critic's actual cited reasons (an excessive volume jump, no rest day, threshold intervals placed too early, a poorly-timed long run, and a sled session with no established baseline) and the resulting revision, which is worth reading alongside this aggregate figure: the 100\% intervention rate is not five near-identical rejections but a Critic engaging with materially different failure modes across runs.
 
 \subsection{Prompt-variant ablation}
 
@@ -69,11 +90,11 @@ Read in isolation this looks like a null result, but read against the Critic-abl
 
 \section{Cost and latency}
 
-Cost is tracked as a first-class metric rather than reported as an afterthought, per the design commitment in Chapter~\ref{ch:design}. The eight-run Critic ablation and the accepted plan shown in Chapter~\ref{ch:implementation} give representative figures: the single live run illustrated there cost 8{,}282 tokens end to end across two Coach attempts and two Critic reviews. The five-run consistency evaluation totalled 61{,}326 input and 18{,}412 output tokens across its four completed runs, giving a per-completed-run average in the same order of magnitude. At current Claude API pricing this places a single planning cycle, including one Critic-driven revision, well under \$0.10 --- cheap enough that the per-revision cost is not a barrier to the reject/revise loop the architecture depends on, which matters because Section~\ref{sec:harness} shows that loop firing on the majority of runs, not the minority.
+Cost is tracked as a first-class metric rather than reported as an afterthought, per the design commitment in Chapter~\ref{ch:design}. The eight-run Critic ablation and the accepted plan shown in Chapter~\ref{ch:implementation} give representative figures: the single live run illustrated there cost 8{,}681 tokens end to end across two Coach attempts and two Critic reviews. The five-run consistency evaluation totalled 61{,}326 input and 18{,}412 output tokens across its four completed runs, giving a per-completed-run average in the same order of magnitude. At current Claude API pricing this places a single planning cycle, including one Critic-driven revision, well under \$0.10 --- cheap enough that the per-revision cost is not a barrier to the reject/revise loop the architecture depends on, which matters because Section~\ref{sec:harness} shows that loop firing on the majority of runs, not the minority.
 
 \section{Critical evaluation against the project's objectives}
 
-Chapter~\ref{ch:introduction} set four objectives. The first --- a feature-engineering layer converting raw sessions into structured training-load features --- is partially met: the Banister TRIMP score is implemented and unit-tested, but pace/heart-rate zones and ACWR remain specified, not built, so the Coach currently reasons over duration and heart rate rather than the richer load features the design chapter anticipates. The second objective --- a three-agent orchestration pipeline with schema-validated hand-offs and explicit conflict resolution --- is substantially met, and is the best-evidenced claim in this report: Chapter~\ref{ch:implementation} shows the orchestrator's code and a real reject/revise/approve cycle, and this chapter's Critic ablation shows that cycle firing on 100\% of true-tier runs. The third objective --- objective evaluation as the primary signal, with a supplementary user study --- is half complete: the objective harness is built, run on the true tiers, and reported above with honest, sometimes unflattering, numbers; the user study has not started. The fourth objective --- critically situating the system against the orchestration and fitness-coaching literature --- is addressed in Chapter~\ref{ch:lit-review} and revisited briefly below.
+Chapter~\ref{ch:introduction} set four objectives. The first --- a feature-engineering layer converting raw sessions into structured training-load features --- is largely met: the Banister TRIMP score and the acute:chronic workload ratio (ACWR) are both implemented and unit-tested (Section~\ref{sec:metric-defs}), leaving only pace/heart-rate training zones specified but not built, so the Coach now reasons over duration, heart rate and cumulative acute/chronic load rather than the full set of zone-based features the design chapter anticipates. The second objective --- a three-agent orchestration pipeline with schema-validated hand-offs and explicit conflict resolution --- is substantially met, and is the best-evidenced claim in this report: Chapter~\ref{ch:implementation} shows the orchestrator's code and a real reject/revise/approve cycle, and this chapter's Critic ablation shows that cycle firing on 100\% of true-tier runs. The third objective --- objective evaluation as the primary signal, with a supplementary user study --- is half complete: the objective harness is built, run on the true tiers, and reported above with honest, sometimes unflattering, numbers; the user study has not started. The fourth objective --- critically situating the system against the orchestration and fitness-coaching literature --- is addressed in Chapter~\ref{ch:lit-review} and revisited briefly below.
 
 One further comparison worth making explicitly: the schema described in Chapter~\ref{ch:design} specifies seven session labels, an \texttt{intensityZone} enum, and a \texttt{durationMinutes} field, while the schema actually implemented and evaluated above uses four labels (\texttt{run}, \texttt{sled}, \texttt{burpees}, \texttt{mixed}) and a free-text \texttt{focus} field in place of a structured intensity zone. This was a deliberate simplification made during implementation, not an oversight discovered late: a smaller, denser label space is easier to evaluate meaningfully on a small illustrative set, and the free-text focus field let the Coach and Critic communicate nuance (``technique-focused,'' ``low intensity, form priority'') that a fixed five-level enum would have discarded. The trade-off is that the implemented schema is less structured than the one the design chapter's Zod listing shows, which weakens the ``schema as control-flow primitive'' argument slightly for anything downstream that would want to reason about numeric intensity rather than free text. This is exactly the kind of gap this evaluation chapter is meant to surface rather than paper over.
 

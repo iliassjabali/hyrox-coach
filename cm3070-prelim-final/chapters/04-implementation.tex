@@ -5,7 +5,7 @@
 % the topic 6 peer review: algorithms/techniques, key code, visual results.
 % ==========================================================================
 
-\chapter{Implementation}
+\chapter{Implementation (1534/2500 words)}
 \label{ch:implementation}
 
 \section{From prototype to system}
@@ -14,7 +14,13 @@ The preliminary report described a feature prototype whose purpose was narrow: s
 
 \section{Architecture in practice}
 
-The system is a hexagonal TypeScript monorepo (Turborepo\,+\,pnpm), matching the architecture set out in Chapter~\ref{ch:design}. The \texttt{@hyrox/training} bounded context is layered into \texttt{domain} (pure types and invariants, no external imports), \texttt{application} (use cases and the ports they depend on), and \texttt{infrastructure} (adapters implementing those ports: the three Anthropic LLM adapters, the Drizzle/libSQL repositories, the CSV parser, the system clock). The dependency rule --- domain imports nothing external, application imports domain only --- is not a convention left to discipline; it is enforced mechanically by a custom ESLint rule (\texttt{@hyrox/config/eslint/hexagonal.js}) that fails the build on violation. A composition root in \texttt{@hyrox/trpc} wires the concrete adapters into the use case and exposes it to the Next.js frontend (\texttt{apps/web}) through a single tRPC procedure, so the web layer never imports an infrastructure adapter directly.
+The system is a hexagonal TypeScript monorepo (Turborepo\,+\,pnpm), matching the architecture set out in Chapter~\ref{ch:design}. The \texttt{@hyrox/training} bounded context is layered into \texttt{domain} (pure types and invariants, no external imports), \texttt{application} (use cases and the ports they depend on), and \texttt{infrastructure} (adapters implementing those ports: the three Anthropic LLM adapters, the Drizzle/libSQL repositories, the CSV parser, the system clock). The dependency rule --- domain imports nothing external, application imports domain only --- is not a convention left to discipline; it is enforced mechanically by a custom ESLint rule (\texttt{@hyrox/config/eslint/hexagonal.js}) that fails the build on violation. A composition root in \texttt{@hyrox/trpc} wires the concrete adapters into the use case and exposes it to the Next.js frontend (\texttt{apps/web}) through a single tRPC procedure, so the web layer never imports an infrastructure adapter directly. The complete source --- including the domain model, the three agent adapters, the test suite, and the evaluation harness --- is publicly available at \texttt{https://github.com/iliassjabali/hyrox-coach}.
+
+\section{Domain model and feature engineering}
+
+The domain layer is small and deliberately free of external dependencies. A \texttt{WorkoutSession} carries an athlete's raw session data; a \texttt{SessionType} is the Classifier's four-value output (\texttt{run}, \texttt{sled}, \texttt{burpees}, \texttt{mixed}); a \texttt{WeeklyPlan} is the Coach's structured output, one entry per training day with a session type and a free-text focus; and a \texttt{PlanVerdict} is the Critic's judgement, carrying an acceptance flag together with its reasons and suggested fixes. These types are the contracts the orchestrator threads between agents: because each is a plain domain type rather than raw model output, every hand-off is validated at the boundary before the next agent sees it.
+
+The feature-engineering layer turns raw sessions into the training-load features the sports-science literature (Chapter~\ref{ch:lit-review}) treats as the right inputs for load management. The \texttt{TrainingLoad} domain service computes two of them. The Banister TRIMP score weights a session's duration by heart-rate reserve on an exponential curve, giving a single scalar load per session; the acute-to-chronic workload ratio (ACWR) then compares the mean daily load over the last seven days against the mean over the last twenty-eight, flagging the training-load spikes that the load-monitoring literature associates with elevated injury risk~\cite{gabbett2016}. Both are pure functions, unit-tested against worked examples --- including the boundary cases of an insufficient history window and a zero chronic load --- and their formulas are given in Chapter~\ref{ch:evaluation}, Section~\ref{sec:metric-defs}.
 
 \section{The orchestrator: classify, coach, critique, retry}
 
@@ -46,7 +52,7 @@ Three design choices in this listing are worth drawing out. First, conflict reso
 
 A production-shaped failure surfaced once the pipeline moved from the Haiku-only feasibility substitution to the true design tiers: Claude Opus intermittently returned the Coach's \texttt{sessions} field as a JSON \emph{string} --- \texttt{\{"sessions": "[\{...\}]"\}} --- rather than as an array, which failed Zod validation outright and crashed the run. Claude Haiku never exhibited this behaviour in the same harness, so the fault was specific to the stronger model's output formatting, not to the schema or the prompt.
 
-The fix is deliberately placed in the infrastructure adapter, not the prompt, because it is a serialisation-format recovery rather than a reasoning problem: a \texttt{z.preprocess} step detects a string \texttt{sessions} field, attempts to parse it, and substitutes the parsed array before the schema proper runs (Listing~\ref{lst:preprocess}). This is combined with a bounded \texttt{retryOnError} wrapper (Listing~\ref{lst:retry}) around the whole structured-output call, which retries only on a schema-generation failure and re-throws immediately on anything else, so a genuinely invalid response still surfaces as an error rather than being silently retried forever.
+The fix is deliberately placed in the infrastructure adapter, not the prompt, because it is a serialisation-format recovery rather than a reasoning problem: a \texttt{z.preprocess} step detects a string \texttt{sessions} field, attempts to parse it, and substitutes the parsed array before the schema proper runs (Listing~\ref{lst:preprocess}). This is combined with a bounded \texttt{retryOnError} wrapper (Listing~\ref{lst:retry}, in Appendix~\ref{app:code}) around the whole structured-output call, which retries only on a schema-generation failure and re-throws immediately on anything else, so a genuinely invalid response still surfaces as an error rather than being silently retried forever.
 
 \begin{lstlisting}[language=TypeScript, caption={Recovering Opus's occasional double-stringified \texttt{sessions} field before Zod validation runs.}, label={lst:preprocess}]
 const schema = z.preprocess((value) => {
@@ -62,18 +68,6 @@ const schema = z.preprocess((value) => {
 }, z.object({ sessions: z.array(sessionItem) }));
 \end{lstlisting}
 
-\begin{lstlisting}[language=TypeScript, caption={Bounded retry, scoped to schema-generation failures only.}, label={lst:retry}]
-export async function retryOnError<T>(fn: () => Promise<T>, options = {}) {
-  const attempts = Math.max(1, options.attempts ?? 3);
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    try { return await fn(); }
-    catch (error) {
-      if (attempt === attempts - 1 || !options.shouldRetry?.(error)) throw error;
-    }
-  }
-}
-\end{lstlisting}
-
 This episode is included because it is evidence for a claim made in Chapter~\ref{ch:design}: keeping reliability logic in the orchestrator and adapters, with the agents themselves staying pure (prompt in, validated object out), meant the fix required no prompt change and no change to any agent's contract --- only to the boundary where an agent's raw output is turned into a domain object.
 
 \section{Model resolution and cost as a first-class metric}
@@ -87,31 +81,30 @@ Session history and run logs are written through \texttt{DrizzleSessionRepositor
 \section{Streaming demo and UI}
 \label{sec:streaming-ui}
 
-The Next.js frontend calls a single Server-Sent Events route (Listing~\ref{lst:sse}) that runs the same \texttt{CoachAthleteUseCase} and forwards each \texttt{onProgress} event to the browser as it happens, so the UI renders the pipeline live rather than as one long blocking spinner.
+The Next.js frontend calls a single Server-Sent Events route (Listing~\ref{lst:sse}, in Appendix~\ref{app:code}) that runs the same \texttt{CoachAthleteUseCase} and forwards each \texttt{onProgress} event to the browser as it happens, so the UI renders the pipeline live rather than as one long blocking spinner.
 
-\begin{lstlisting}[language=TypeScript, caption={The streaming route: the orchestrator's \texttt{onProgress} callback is forwarded directly onto the SSE stream.}, label={lst:sse}]
-const result = await ctx.training.coachAthlete.execute({
-  sessions, weekStartingOn,
-  onProgress: (event) => send({ kind: 'progress', event }),
-});
-send({ kind: 'result', result });
-\end{lstlisting}
+Figure~\ref{fig:live-run} is an unedited screen capture of one such run against the committed synthetic fixture, and Table~\ref{tab:live-run} transcribes its five stages. The Coach's first draft (attempt~1) proposes six sessions across seven days --- including lactate-threshold intervals and a 10\,km long run --- for an athlete whose recent history is just three modest sessions (${\sim}90$~min in total). The Critic rejects it with five specific, cited reasons: an excessive volume jump, no rest or recovery day (five consecutive training days), threshold intervals placed too early in the week, a poorly-timed long run, and a sled session introduced with no established baseline. The orchestrator feeds those reasons back to the Coach, which redrafts a materially different four-session plan --- an easy baseline-matching run, an introductory technique-focused sled session, accessible sub-threshold intervals after full rest, and an easy recovery run --- and the Critic accepts it on attempt~2. The run cost 8{,}681 tokens end to end, well under \$0.10. This is not a constructed example: it is the literal output of one live click on the running interface, and it is the clearest single piece of evidence that the Critic stage does substantive safety work rather than adding latency for its own sake --- a claim examined quantitatively, across many runs, in Chapter~\ref{ch:evaluation}.
 
-Figure~\ref{fig:live-run} records an unedited run of this interface against the committed synthetic fixture. The Coach's first draft (attempt 1) proposes seven consecutive training days including a full Hyrox simulation with no established base; the Critic rejects it with five specific, cited reasons (an unsafe volume jump, no rest day, a three-day high-intensity block, an unsupported race simulation, and an unprepared introduction of sled work). The orchestrator feeds those reasons back to the Coach, which redrafts a materially different four-session plan with an explicit rest day and a technique-focused sled introduction; the Critic accepts it on attempt 2. The run took 8{,}282 tokens end to end. This is not a constructed example: it is the literal output of one live click on the deployed interface, and it is the clearest available evidence that the Critic stage does substantive work rather than adding latency for its own sake --- a claim examined quantitatively, across many runs, in Chapter~\ref{ch:evaluation}.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{images/pipeline-live-run.png}
+\caption{An unedited live run of the streaming interface. The Critic (Sonnet) rejects the Coach's (Opus) first draft with five cited safety reasons, then accepts the revised four-session plan on attempt~2 (accepted; 2 attempts; 8{,}681 tokens).}
+\label{fig:live-run}
+\end{figure}
 
 \begin{table}[H]
 \centering
-\caption{Live pipeline run recorded from the streaming UI (unedited). The Critic rejects the first draft with five cited safety reasons and accepts the Coach's revision on attempt 2.}
-\label{fig:live-run}
+\caption{The same live run, transcribed stage by stage.}
+\label{tab:live-run}
 \begin{tabularx}{\textwidth}{@{}l l X@{}}
 \toprule
 \textbf{Stage} & \textbf{Result} & \textbf{Detail} \\
 \midrule
 Classifier (Haiku) & \checkmark & Labelled sessions --- 1$\times$ run, 2$\times$ mixed \\
-Coach (Opus), attempt 1 & \checkmark & Drafted a 7-day plan including a full Hyrox simulation \\
-Critic (Sonnet), attempt 1 & $\times$ Revision requested & Unsafe volume jump; no rest day; 3-day high-intensity block (Days 3--5); unsupported race simulation; abrupt sled introduction \\
-Coach (Opus), attempt 2 & \checkmark & Redrafted: 4 sessions, explicit rest day, technique-focused sled intro \\
-Critic (Sonnet), attempt 2 & \checkmark Accepted & Mon run, Wed sled (technique), Fri mixed (partial simulation, low intensity), Sun optional recovery \\
+Coach (Opus), attempt 1 & \checkmark & Drafted 6 sessions across 7 days, incl.\ threshold intervals and a 10\,km long run \\
+Critic (Sonnet), attempt 1 & $\times$ Revision requested & Excessive volume jump; no rest day (5 consecutive); threshold intervals too early; poorly-timed long run; sled with no baseline \\
+Coach (Opus), attempt 2 & \checkmark & Redrafted: 4 sessions with an explicit rest cadence and a technique-focused sled intro \\
+Critic (Sonnet), attempt 2 & \checkmark Accepted & Mon easy run; Wed introductory sled; Fri accessible sub-threshold intervals; Sun easy recovery run \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -122,4 +115,4 @@ The training package carries 64 unit tests across the domain, application, and i
 
 \section{What remains}
 
-Three items from the design are not yet built. Feature engineering currently computes only the Banister TRIMP score; pace/heart-rate zones and the acute-to-chronic workload ratio are specified but not implemented, so the Coach currently reasons over raw session duration and heart rate rather than derived training-load features. Ingestion is CSV-based rather than live Strava/Garmin OAuth. All three roles use one model family (Claude), so the role-specialisation question is not yet probed across families. Each is discussed as a limitation, with its evaluation consequence, in Chapter~\ref{ch:evaluation}.
+Feature engineering now computes both the Banister TRIMP score and the acute-to-chronic workload ratio (ACWR), each implemented and unit-tested; what remains from the design here is a set of pace/heart-rate training zones. Beyond feature engineering, three larger items are still open. Ingestion is CSV-based rather than live Strava/Garmin OAuth. All three roles use a single model family (Claude), so the role-specialisation question is not yet probed across families. And the system has been exercised only on the committed synthetic fixture, not on a real multi-athlete dataset. Each open item is discussed as a limitation, with its evaluation consequence, in Chapter~\ref{ch:evaluation}.

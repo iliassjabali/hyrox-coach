@@ -3,7 +3,7 @@
 % Structure: research question, branch A, branch B, synthesis & bridge
 % ==========================================================================
 
-\chapter{Background research and related initiatives}
+\chapter{Background research and related initiatives (2039/2500 words)}
 \label{ch:lit-review}
 
 \section{Research question and scope of review}
@@ -46,7 +46,7 @@ Strava is the dominant social fitness platform. Its own training-plan offering h
 
 \subsection{Adaptive coaching from wearables}
 
-Garmin Coach, supported by Firstbeat analytics, represents the state of the art in commercial adaptive coaching~\cite{firstbeat_whitepaper}. It ingests heart-rate variability and training-status signals derived from years of physiological research and adapts daily workouts accordingly. The right physiological signal is being used, and the underlying load model is well grounded. The critical limitation is sport scope: Garmin Coach is locked to running, cycling, and swimming. Hybrid sport, in which strength work and running interact in non-additive ways, is not supported. The underlying load model is TRIMP-based, which is well established for endurance training but is documented to underweight strength-dominant sessions~\cite{strength_load_critique}. For a Hyrox athlete whose race performance depends on both endurance and strength, a load model that ignores half the training is a structural problem, not a calibration one.
+Garmin Coach, supported by Firstbeat analytics, represents the state of the art in commercial adaptive coaching~\cite{firstbeat_whitepaper}. It ingests heart-rate variability and training-status signals derived from years of physiological research and adapts daily workouts accordingly. The right physiological signal is being used, and the underlying load model is well grounded. The critical limitation is sport scope: Garmin Coach is locked to running, cycling, and swimming. Hybrid sport, in which strength work and running interact in non-additive ways, is not supported. The underlying load model is TRIMP-based, which is well established for endurance training but is documented to underweight strength-dominant sessions~\cite{strength_load_critique}. Beyond the single-session TRIMP score, load-monitoring practice increasingly tracks the acute-to-chronic workload ratio, which quantifies injury risk from the balance of recent against habitual load~\cite{gabbett2016} --- a derived signal the present project computes directly (Chapter~\ref{ch:implementation}). For a Hyrox athlete whose race performance depends on both endurance and strength, a load model that ignores half the training is a structural problem, not a calibration one.
 
 \subsection{AI-driven coaching startups}
 
@@ -59,6 +59,33 @@ A large number of consumer apps now wrap a single general-purpose chat model in 
 \subsection{The hybrid-sport gap}
 
 Across the fitness branch, three gaps stand out specifically for Hyrox, revised here from the preliminary report to reflect that Hyrox is no longer entirely without commercial coverage: Athletica now lists it as a supported sport. First, coverage does not equal a well-grounded load model: the major running-derived and TSS-derived systems still under-represent strength and sled work even where a Hyrox mode has been added, because the underlying training-load mathematics was not designed for it. Second, none of the commercial products, including Athletica, are open or auditable --- their coaching logic, whatever its internal structure, is not published, which makes them poor scientific baselines and difficult to critique on methodological rather than product grounds. Third, none combines transparent, well-grounded load modelling with the structured-reasoning and explicit-critique advantages of recent LLM orchestration work; where a critique or safety check exists, as in Athletica, it is a manual user-confirmation step rather than a second model reasoning independently over the plan. The present project's gap is therefore architectural and evaluative, not a claim that no product has ever mentioned Hyrox.
+
+\section{Summary of reviewed work}
+
+Table~\ref{tab:litsummary} consolidates the two branches, pairing each reviewed work's key contribution with the specific gap it leaves that this project addresses. It is included in response to reviewer feedback requesting a tabular synthesis of the literature.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\caption{Summary of reviewed work and the gap each leaves that this project addresses.}
+\label{tab:litsummary}
+\begin{tabular}{@{}p{2.3cm}p{1.4cm}p{4.3cm}p{4.6cm}@{}}
+\toprule
+\textbf{Work} & \textbf{Branch} & \textbf{Key contribution} & \textbf{Gap this project addresses} \\
+\midrule
+ReAct~\cite{yao2022react} & Orchestration & Interleaves reasoning with tool calls; treats the LLM as a reasoning controller. & Single model for all roles; no role specialisation; no schema-validated output. \\
+Reflexion~\cite{shinn2023reflexion} & Orchestration & Self-critique loop storing verbal feedback in episodic memory. & Needs a failure signal absent in open-ended planning; project uses a rule-grounded, role-separated Critic. \\
+Multi-agent debate~\cite{du2023debate} & Orchestration & Structured disagreement between agents improves factuality and reasoning. & Identical models in symmetric roles; leaves distinct-model, distinct-role specialisation open. \\
+AutoGen~\cite{wu2023autogen} & Orchestration & General framework for composing conversational tool-using agents. & Framework-demo evaluations; heavy abstractions vs.\ a small schema-validated orchestrator. \\
+Strava\,/\,Runna~\cite{strava_runna} & Fitness & Personalised, performance-adaptive running plans at scale. & Closed-loop adaptation for running only; no hybrid strength/sled treatment. \\
+Garmin Coach\,/\,Firstbeat~\cite{firstbeat_whitepaper} & Fitness & Wearable-driven daily adaptation on a well-grounded load model. & Locked to run/cycle/swim; TRIMP underweights strength~\cite{strength_load_critique}. \\
+Humango, Athletica~\cite{humango,athletica} & Fitness & AI adaptive coaching; Athletica now lists Hyrox as supported. & Closed-source; single conversational coach; no disclosed multi-model or independent critique step. \\
+Generic LLM apps~\cite{huang2023hallucination} & Fitness & Rapid to build; conversational interface. & Severe hallucination; no structured input/output; not rigorously evaluable. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The dose--response and load-monitoring sports-science literature~\cite{busso2003,strength_load_critique} underpins the fitness branch: the former establishes that closed-loop adaptation outperforms open-loop planning, and the latter documents precisely the strength-underweighting that a TRIMP-only load model inherits.
 
 \section{Synthesis and bridge to the project}
 
