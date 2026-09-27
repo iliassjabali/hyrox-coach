@@ -43,7 +43,11 @@ export class CoachAthleteUseCase implements CoachAthlete {
     for (const c of classification.classifications) {
       byType[c.type.value] = (byType[c.type.value] ?? 0) + 1;
     }
-    progress({ stage: 'classified', byType });
+    const perSession = classification.classifications.map((c) => ({
+      id: c.id,
+      type: c.type.value,
+    }));
+    progress({ stage: 'classified', byType, perSession });
 
     const cost: TokenUsage = { ...classification.usage };
     let attempts = 0;
@@ -73,6 +77,8 @@ export class CoachAthleteUseCase implements CoachAthlete {
         attempt: attempts,
         accepted: verdict.isAccepted,
         reasons: [...verdict.reasons],
+        plan: toPlanDto(plan),
+        tokens: cost.inputTokens + cost.outputTokens,
       });
 
       if (verdict.isAccepted) break;
