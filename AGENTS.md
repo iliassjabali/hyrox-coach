@@ -97,11 +97,11 @@ Domain types are pure TS (in `domain/`); **Zod validates only at the boundaries*
 - ⬜ CSV upload UI · weekly-plan rich render · session history view
 
 ### 3.7 Evaluation harness *(the graded core — lead with objective metrics)*
-- ✅ Classifier accuracy + confusion matrix (`accuracy`, `confusionMatrix`) — needs labelled data to run
-- ✅ Consistency metric (`consistency`: modal-run fraction)
+- ✅ Classifier accuracy + confusion matrix (`accuracy`, `confusionMatrix`) — 56.25% on the 16-session synthetic fixture
+- ✅ Consistency metric (`consistency`: modal-run fraction) — 25% type/full stability, true tiers
 - ✅ Token cost recorded per run (`RunLog`)
-- ⬜ Ablation: same input with/without Critic, compare outputs
-- ⬜ Prompt-variant ablation: 3 Coach prompt variants compared
+- ✅ Ablation: Critic on every completed run vs. Coach-only first draft — 8/8 runs flagged (100%), 37.5% rejected outright, 62.5% revised
+- ✅ Prompt-variant ablation: 3 Coach prompt variants compared — 0% one-shot approval across all three; informative only alongside the ablation figure above
 - ⬜ Latency reporting per agent
 
 ### 3.8 Safety, ethics & study (Phase 5)

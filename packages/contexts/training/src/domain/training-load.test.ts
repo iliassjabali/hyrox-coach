@@ -41,3 +41,44 @@ describe('TrainingLoad.trimp', () => {
     ).toThrow(InvalidTrainingLoad);
   });
 });
+
+// ACWR (acute:chronic workload ratio): acute = mean daily load over the last 7 days,
+// chronic = mean daily load over the last 28 days, ACWR = acute / chronic (Gabbett).
+describe('TrainingLoad.acwr', () => {
+  const steady = Array.from({ length: 28 }, () => 100);
+
+  it('is 1.0 when daily load is steady over the 28-day window', () => {
+    expect(TrainingLoad.acwr(steady)).toBeCloseTo(1.0, 5);
+  });
+
+  it('rises above 1 when the last 7 days spike above the chronic baseline', () => {
+    const loads = [
+      ...Array.from({ length: 21 }, () => 50),
+      ...Array.from({ length: 7 }, () => 100),
+    ];
+    // acute = 100; chronic = (21*50 + 7*100)/28 = 62.5; ACWR = 1.6
+    expect(TrainingLoad.acwr(loads)).toBeCloseTo(1.6, 5);
+  });
+
+  it('uses only the most recent 28 days of a longer history', () => {
+    const loads = [...Array.from({ length: 10 }, () => 999), ...steady];
+    expect(TrainingLoad.acwr(loads)).toBeCloseTo(1.0, 5);
+  });
+
+  it('requires at least 28 days of load', () => {
+    expect(() => TrainingLoad.acwr(Array.from({ length: 27 }, () => 100))).toThrow(
+      InvalidTrainingLoad,
+    );
+  });
+
+  it('rejects a zero chronic load', () => {
+    expect(() => TrainingLoad.acwr(Array.from({ length: 28 }, () => 0))).toThrow(
+      InvalidTrainingLoad,
+    );
+  });
+
+  it('rejects negative or non-finite daily loads', () => {
+    const bad = [...Array.from({ length: 27 }, () => 100), -5];
+    expect(() => TrainingLoad.acwr(bad)).toThrow(InvalidTrainingLoad);
+  });
+});

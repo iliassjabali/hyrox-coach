@@ -1,0 +1,30 @@
+% ==========================================================================
+% Appendix A: Supplementary code listings
+% Two listings moved out of Chapter 4 to keep the main text focused, per
+% reviewer feedback that lengthy source code need not sit in the report body.
+% ==========================================================================
+
+\chapter{Supplementary code listings}
+\label{app:code}
+
+The two listings below are referenced from Chapter~\ref{ch:implementation}. They are placed here, rather than inline, to keep the main text focused on the algorithms and the most important code; the complete source is in the public repository (Chapter~\ref{ch:implementation}).
+
+\begin{lstlisting}[language=TypeScript, caption={Bounded retry, scoped to schema-generation failures only.}, label={lst:retry}]
+export async function retryOnError<T>(fn: () => Promise<T>, options = {}) {
+  const attempts = Math.max(1, options.attempts ?? 3);
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try { return await fn(); }
+    catch (error) {
+      if (attempt === attempts - 1 || !options.shouldRetry?.(error)) throw error;
+    }
+  }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=TypeScript, caption={The streaming route: the orchestrator's \texttt{onProgress} callback is forwarded directly onto the SSE stream.}, label={lst:sse}]
+const result = await ctx.training.coachAthlete.execute({
+  sessions, weekStartingOn,
+  onProgress: (event) => send({ kind: 'progress', event }),
+});
+send({ kind: 'result', result });
+\end{lstlisting}

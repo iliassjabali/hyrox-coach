@@ -1,9 +1,12 @@
 % ==========================================================================
 % references.bib --- IEEE style
-% Citation keys match those used in chapters 1-4.
-% VERIFY EVERY ENTRY in Zotero against actual published version before
-% submission. Industry sources (Strava, Garmin, Humango, Athletica) are
-% acceptable per Coursera forum guidance but should be retrieved fresh.
+% Citation keys match those used across chapters.
+% All entries verified 2026-08-18 via web search against primary sources
+% (arXiv/publisher pages for the academic works; live product/press pages
+% for industry sources). See each entry's `note` field for what was checked
+% and, where a fact had changed since the preliminary report (Strava/Runna,
+% Athletica now listing Hyrox, the Firstbeat whitepaper URL, the Hyrox
+% growth figure), what was corrected and why.
 % ==========================================================================
 
 % --- Branch A: Multi-agent LLM orchestration ---
@@ -14,7 +17,7 @@
   booktitle = {Proceedings of the International Conference on Learning Representations (ICLR)},
   year      = {2023},
   address   = {Kigali, Rwanda},
-  note      = {Verify exact pages and arXiv identifier (arXiv:2210.03629) in Zotero}
+  note      = {Verified 2026-08-18: arXiv:2210.03629, https://arxiv.org/abs/2210.03629}
 }
 
 @inproceedings{shinn2023reflexion,
@@ -23,7 +26,7 @@
   booktitle = {Proceedings of the 37th Conference on Neural Information Processing Systems (NeurIPS)},
   year      = {2023},
   address   = {New Orleans, LA, USA},
-  note      = {Verify arXiv:2303.11366}
+  note      = {Verified 2026-08-18: arXiv:2303.11366, https://arxiv.org/abs/2303.11366}
 }
 
 @inproceedings{du2023debate,
@@ -32,7 +35,7 @@
   booktitle = {Proceedings of the 41st International Conference on Machine Learning (ICML)},
   year      = {2024},
   address   = {Vienna, Austria},
-  note      = {Verify arXiv:2305.14325}
+  note      = {Verified 2026-08-18: arXiv:2305.14325, https://arxiv.org/abs/2305.14325}
 }
 
 @misc{wu2023autogen,
@@ -40,27 +43,27 @@
   title        = {{AutoGen}: Enabling Next-Gen LLM Applications via Multi-Agent Conversation},
   howpublished = {arXiv preprint arXiv:2308.08155},
   year         = {2023},
-  note         = {Microsoft Research}
+  note         = {Microsoft Research. Verified 2026-08-18: https://arxiv.org/abs/2308.08155}
 }
 
 % --- Branch B: AI-based fitness coaching ---
 
-@misc{strava_plans,
+@misc{strava_runna,
   author       = {{Strava, Inc.}},
-  title        = {Strava Training Plans},
-  howpublished = {Product documentation},
-  year         = {2024},
-  url          = {https://www.strava.com/training-plans},
-  note         = {Industry source, retrieved during literature review}
+  title        = {Strava to Acquire {R}unna, A Leading Running Training App},
+  howpublished = {Press release},
+  year         = {2025},
+  url          = {https://press.strava.com/articles/strava-to-acquire-runna-a-leading-running-training-app},
+  note         = {Verified 2026-08-18. Announced 17 April 2025; supersedes the preliminary report's characterisation of Strava's training plans as generic and unpersonalised (see Chapter 2)}
 }
 
 @misc{firstbeat_whitepaper,
-  author       = {{Firstbeat Analytics}},
-  title        = {Heart Rate Variability and Training Status},
-  howpublished = {Firstbeat Analytics Whitepaper},
-  year         = {2020},
-  url          = {https://www.firstbeat.com/en/science-and-physiology/whitepapers/},
-  note         = {Whitepaper, retrieve current version before submission}
+  author       = {{Firstbeat Technologies}},
+  title        = {Recovery Analysis for Athletic Training Based on Heart Rate Variability},
+  howpublished = {Firstbeat Technologies Whitepaper},
+  year         = {2015},
+  url          = {https://www.firstbeat.com/wp-content/uploads/2015/10/Recovery-white-paper_15.6.20153.pdf},
+  note         = {Verified 2026-08-18 (the previously cited whitepapers index URL 404s)}
 }
 
 @article{busso2003,
@@ -71,7 +74,7 @@
   number  = {7},
   pages   = {1188--1195},
   year    = {2003},
-  note    = {Verify volume/issue/pages in Zotero}
+  note    = {Verified 2026-08-18 against PubMed (PMID 12840641) and the journal record}
 }
 
 @article{strength_load_critique,
@@ -82,7 +85,18 @@
   number  = {2},
   pages   = {S139--S147},
   year    = {2014},
-  note    = {Verify; alternative sources critiquing TSS/TRIMP for strength sessions are also acceptable}
+  note    = {Verified 2026-08-18 against Springer/PMC (PMC4213373)}
+}
+
+@article{gabbett2016,
+  author  = {Gabbett, Tim J.},
+  title   = {The Training--Injury Prevention Paradox: Should Athletes Be Training Smarter and Harder?},
+  journal = {British Journal of Sports Medicine},
+  volume  = {50},
+  number  = {5},
+  pages   = {273--280},
+  year    = {2016},
+  note    = {Verified 2026-09-27 against PubMed (PMID 26758673), DOI 10.1136/bjsports-2015-095788. Seminal acute:chronic workload ratio (ACWR) / injury-risk reference}
 }
 
 @misc{humango,
@@ -91,7 +105,7 @@
   howpublished = {Product documentation and blog},
   year         = {2024},
   url          = {https://www.humango.ai/},
-  note         = {Industry source}
+  note         = {Verified 2026-08-18: single-modality (running/endurance) AI-adaptive coaching, no Hyrox or hybrid-strength support}
 }
 
 @misc{athletica,
@@ -100,7 +114,7 @@
   howpublished = {Product documentation},
   year         = {2024},
   url          = {https://athletica.ai/},
-  note         = {Industry source}
+  note         = {Verified 2026-08-18: as of this check, Athletica's site lists Hyrox among supported sports alongside running/triathlon/cycling/rowing --- see the revised critique in Chapter 2, which is architectural (closed-source, single conversational AI coach, no disclosed multi-model orchestration or structured critique step) rather than sport-coverage}
 }
 
 % --- Supporting references ---
@@ -110,14 +124,14 @@
   title   = {A Survey on Hallucination in Large Language Models: Principles, Taxonomy, Challenges, and Open Questions},
   journal = {ACM Transactions on Information Systems},
   year    = {2024},
-  note    = {Verify arXiv:2311.05232}
+  note    = {Verified 2026-08-18: arXiv:2311.05232, https://arxiv.org/abs/2311.05232}
 }
 
 @misc{hyrox_growth,
-  author       = {{HYROX}},
-  title        = {{HYROX} Global Participation Figures},
-  howpublished = {Official press releases and season reports},
-  year         = {2024},
-  url          = {https://hyrox.com/},
-  note         = {Replace with the most recent figure from Hyrox press materials before submission}
+  author       = {{Infront Sports \& Media}},
+  title        = {{HYROX}: From a Disruptive Fitness Race to a Global Mass Participation Powerhouse},
+  howpublished = {Industry report},
+  year         = {2025},
+  url          = {https://www.infront.sport/blog/participation-sports/hyrox-the-meteoric-rise-of-a-global-fitness-racing-phenomenon},
+  note         = {Verified 2026-08-18: participation reported at $\sim$570{,}000 athletes across 74 races in the 2024/25 season, projected to reach 1.5 million athletes across 105 races in 2025/26, and roughly a tenfold increase over the five years to 2024. Replaces the preliminary report's unsourced ``more than doubling year on year since 2022'' figure with these cited numbers.}
 }

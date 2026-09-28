@@ -53,6 +53,23 @@ export function loadEnv(): void {
   }
 }
 
+// The Vercel AI SDK's @ai-sdk/anthropic provider appends "/messages" directly to
+// ANTHROPIC_BASE_URL rather than adding "/v1" itself, so a base URL missing that
+// segment 404s on every request. This value commonly leaks into the environment
+// from the Claude Code CLI harness (which sets it to the bare host for its own
+// use), silently turning every live eval call into a same-looking-but-wrong 404
+// instead of the model-ID-typo error it's easy to mistake it for.
+export function assertUsableBaseUrl(env: Record<string, string | undefined> = process.env): void {
+  const baseUrl = env['ANTHROPIC_BASE_URL'];
+  if (baseUrl && !/\/v1\/?$/.test(baseUrl)) {
+    throw new Error(
+      `ANTHROPIC_BASE_URL is set to "${baseUrl}", which is missing the "/v1" path segment the ` +
+        'Anthropic provider expects and will 404 on every request. This commonly leaks in from ' +
+        `the Claude Code CLI environment. Fix: unset it, or set it to "${baseUrl.replace(/\/$/, '')}/v1".`,
+    );
+  }
+}
+
 export function requireApiKey(): void {
   loadEnv();
   if (!process.env['AI_GATEWAY_API_KEY'] && !process.env['ANTHROPIC_API_KEY']) {
@@ -62,6 +79,7 @@ export function requireApiKey(): void {
         'calls route via Vercel; with the Anthropic key they go direct to the Console.',
     );
   }
+  assertUsableBaseUrl();
 }
 
 // ---------------------------------------------------------------------------

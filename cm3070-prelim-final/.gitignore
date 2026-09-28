@@ -1,4 +1,5 @@
 # LaTeX build artifacts (main.pdf is committed intentionally)
+report-*.pdf
 *.aux
 *.log
 *.blg

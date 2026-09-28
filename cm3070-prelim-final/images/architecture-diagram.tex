@@ -1,0 +1,41 @@
+% Standalone build of the system-architecture figure (Fig 1 in the report),
+% for export to PNG so it can be shown in the demo video.
+% Build: tectonic architecture-diagram.tex && pdftocairo -png -r 300 -singlefile architecture-diagram.pdf architecture
+\documentclass[border=14pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, fit, backgrounds, calc}
+\begin{document}
+\begin{tikzpicture}[
+  font=\small,
+  node distance=6mm and 9mm,
+  box/.style={draw, rounded corners=2pt, align=center, minimum height=10mm, inner sep=4pt, fill=blue!4},
+  agent/.style={box, fill=green!7, minimum width=20mm},
+  io/.style={box, fill=gray!8},
+  flow/.style={-{Stealth[length=2.2mm]}, thick},
+]
+  % Main left-to-right pipeline
+  \node[io] (ingest) {Ingestion\\\scriptsize Strava/Garmin\\\scriptsize (CSV in prototype)};
+  \node[box, right=of ingest] (feat) {Feature eng.\\\scriptsize TRIMP, ACWR,\\\scriptsize HR/pace zones};
+  \node[agent, right=of feat] (clf) {Classifier\\\textbf{Haiku}};
+  \node[agent, right=of clf] (coach) {Coach\\\textbf{Opus}};
+  \node[agent, right=of coach] (critic) {Critic\\\textbf{Sonnet}};
+  \node[io, right=of critic] (persist) {Persist\\\scriptsize SQLite/Postgres};
+  \node[io, right=of persist] (ui) {UI\\\scriptsize Next.js plan\\\scriptsize + rationale};
+
+  \draw[flow] (ingest) -- (feat);
+  \draw[flow] (feat) -- (clf);
+  \draw[flow] (clf) -- node[above, font=\scriptsize] {Zod} (coach);
+  \draw[flow] (coach) -- node[above, font=\scriptsize] {Zod} (critic);
+  \draw[flow] (critic) -- (persist);
+  \draw[flow] (persist) -- (ui);
+
+  % Orchestrator band beneath the three agents (background layer so it sits behind them)
+  \begin{scope}[on background layer]
+    \node[draw, dashed, rounded corners, fill=orange!6, fit=(clf)(coach)(critic),
+          inner sep=7mm, label=below:{\footnotesize\textbf{Orchestrator} --- routing, schema validation, bounded retries, conflict resolution}] (orch) {};
+  \end{scope}
+
+  % Critic -> Coach revision feedback loop
+  \draw[flow, dashed] (critic.south) to[out=-90, in=-90] node[below, font=\scriptsize, yshift=-1mm] {reject/revise $\rightarrow$ critic feedback} (coach.south);
+\end{tikzpicture}
+\end{document}

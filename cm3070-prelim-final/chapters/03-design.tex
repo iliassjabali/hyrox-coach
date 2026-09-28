@@ -2,7 +2,7 @@
 % Chapter 3: Design (target ~1950 words, max 2000)
 % ==========================================================================
 
-\chapter{System Design}
+\chapter{System Design (1585/2000 words)}
 \label{ch:design}
 
 \section{Domain analysis and user model}
@@ -52,9 +52,12 @@ Figure~\ref{fig:architecture} illustrates the data flow. The orchestrator (not s
   \draw[flow] (critic) -- (persist);
   \draw[flow] (persist) -- (ui);
 
-  % Orchestrator band beneath the three agents
-  \node[draw, dashed, rounded corners, fill=orange!6, fit=(clf)(coach)(critic),
-        inner sep=7mm, label=below:{\footnotesize\textbf{Orchestrator} --- routing, schema validation, bounded retries, conflict resolution}] (orch) {};
+  % Orchestrator band beneath the three agents (background layer so it sits BEHIND
+  % the agent nodes; otherwise its fill paints over Classifier/Coach/Critic).
+  \begin{scope}[on background layer]
+    \node[draw, dashed, rounded corners, fill=orange!6, fit=(clf)(coach)(critic),
+          inner sep=7mm, label=below:{\footnotesize\textbf{Orchestrator} --- routing, schema validation, bounded retries, conflict resolution}] (orch) {};
+  \end{scope}
 
   % Critic -> Coach revision feedback loop
   \draw[flow, dashed] (critic.south) to[out=-90, in=-90] node[below, font=\scriptsize, yshift=-1mm] {reject/revise $\rightarrow$ critic feedback} (coach.south);
@@ -111,6 +114,8 @@ export const CriticOutput = z.object({
 \end{lstlisting}
 
 Schema validation is not a presentation concern; it is a control-flow primitive. If the Classifier returns a label outside the enum, the orchestrator does not pass that output to the Coach. Instead, it retries with a more explicit prompt suffix and ultimately fails loudly rather than silently degrading.
+
+The schemas above state the original design. During implementation the label set was deliberately narrowed to four values (\texttt{run}, \texttt{sled}, \texttt{burpees}, \texttt{mixed}) and \texttt{intensityZone}/\texttt{durationMinutes} were replaced by a free-text \texttt{focus} field, so that a small illustrative evaluation set could discriminate meaningfully between labels and so the Coach and Critic could exchange qualitative nuance a fixed enum would discard. This trade-off, and its consequence for how much structure the schema can now enforce, is evaluated critically in Chapter~\ref{ch:evaluation}.
 
 \section{Orchestrator design}
 

@@ -5,10 +5,24 @@ import type { TokenUsage } from '../out/token-usage';
 // Stage-progress events emitted as the orchestration runs, so a caller (e.g. a
 // streaming UI) can show live progress through Classify -> Coach -> Critic.
 export type CoachProgress =
-  | { stage: 'classified'; byType: Record<string, number> }
+  | {
+      stage: 'classified';
+      byType: Record<string, number>;
+      perSession: { id: string; type: string }[];
+      usage: TokenUsage; // the Classifier (Haiku) call
+    }
   | { stage: 'coaching'; attempt: number }
   | { stage: 'reviewing'; attempt: number }
-  | { stage: 'critic'; attempt: number; accepted: boolean; reasons: string[] };
+  | {
+      stage: 'critic';
+      attempt: number;
+      accepted: boolean;
+      reasons: string[];
+      plan: WeeklyPlanDto;
+      tokens: number; // cumulative tokens so far
+      coachUsage: TokenUsage; // this attempt's Coach (Opus) call
+      criticUsage: TokenUsage; // this attempt's Critic (Sonnet) call
+    };
 
 export interface CoachAthleteInput {
   sessions: RawSessionInput[];

@@ -196,17 +196,17 @@
 
 | # | Task | Effort | Dependency | Status |
 |---|---|---|---|---|
-| 6.1 | LaTeX: full report structure (Intro, Lit, Design, Implementation, Eval, Conclusion) | 4 hr | — | ⬜ |
-| 6.2 | Polish Intro chapter (~1500 words) | 3 hr | 3.1 | ⬜ |
-| 6.3 | Expand lit review to final length (~3500-4500 words) | 6 hr | 2.11 | ⬜ |
-| 6.4 | Polish Design chapter (~2500 words) | 4 hr | 3.4 | ⬜ |
-| 6.5 | Write Implementation chapter (~3000 words) | 8 hr | 4.x | ⬜ |
-| 6.6 | Paste Evaluation chapter (5.11, 5.12) | 1 hr | 5.11, 5.12 | ⬜ |
-| 6.7 | Write Conclusion + Future Work (~1000 words) | 3 hr | 6.6 | ⬜ |
-| 6.8 | Add Self-Reflection section (~1500 words) — what went wrong, how worked around | 4 hr | journal | ⬜ |
-| 6.9 | Add DEI section (~500-1000 words) — bias in training data, accessibility | 2 hr | — | ⬜ |
+| 6.1 | LaTeX: full report structure (Intro, Lit, Design, Implementation, Eval, Conclusion) | 4 hr | — | ✅ |
+| 6.2 | Revise Intro chapter, update structure section for 6 chapters (~950 words) | 3 hr | 3.1 | ✅ |
+| 6.3 | Revise lit review, reconcile with implementation (~2500 words, actual Coursera cap, not the ~4000 estimated here) | 6 hr | 2.11 | ✅ |
+| 6.4 | Revise Design chapter, reconcile schema with implementation (~2000 words) | 4 hr | 3.4 | ✅ |
+| 6.5 | Write Implementation chapter: orchestrator code, Opus-stringification resilience fix, streaming UI + live-run figure (~1900 words) | 8 hr | 4.x | ✅ |
+| 6.6 | Write Evaluation chapter: objective harness re-run on true tiers (accuracy, consistency, Critic + prompt-variant ablation), critical evaluation vs. objectives (~2100 words) | 6 hr | 5.11, 5.12 | ✅ |
+| 6.7 | Write Conclusion (~350 words) | 3 hr | 6.6 | ✅ |
+| 6.8 | _(not in the actual Coursera brief — 6 chapters only, no separate Self-Reflection chapter)_ | — | — | ⬜ (n/a) |
+| 6.9 | _(not in the actual Coursera brief — DEI folded into Ch5 limitations if relevant)_ | — | — | ⬜ (n/a) |
 | 6.10 | Full reference pass, no fakes, IEEE complete | 2 hr | 6.x | ⬜ |
-| 6.11 | Word counts per chapter on front page | 15 min | 6.x | ⬜ |
+| 6.11 | Word counts per chapter on front page, trim to ≤9500 total | 15 min | 6.x | 🔨 |
 | 6.12 | Submit draft report | 30 min | 6.1-6.11 | ⬜ |
 | 6.13 | Project journal entry W18 | 15 min | — | ⬜ |
 

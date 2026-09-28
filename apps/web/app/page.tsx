@@ -12,11 +12,42 @@ const SAMPLE_SESSIONS = [
 
 type CoachResult = Awaited<ReturnType<typeof trpc.training.coachAthlete.mutate>>;
 
+type PlanShape = {
+  weekStartingOn: string;
+  sessions: { day: number; type: string; focus: string }[];
+};
+
+type Usage = { inputTokens: number; outputTokens: number };
+
 type Progress =
-  | { stage: 'classified'; byType: Record<string, number> }
+  | {
+      stage: 'classified';
+      byType: Record<string, number>;
+      perSession: { id: string; type: string }[];
+      usage: Usage;
+    }
   | { stage: 'coaching'; attempt: number }
   | { stage: 'reviewing'; attempt: number }
-  | { stage: 'critic'; attempt: number; accepted: boolean; reasons: string[] };
+  | {
+      stage: 'critic';
+      attempt: number;
+      accepted: boolean;
+      reasons: string[];
+      plan: PlanShape;
+      tokens: number;
+      coachUsage: Usage;
+      criticUsage: Usage;
+    };
+
+// Anthropic first-party pricing, USD per 1M tokens (per the claude-api reference).
+const PRICING: Record<'Haiku' | 'Opus' | 'Sonnet', { in: number; out: number }> = {
+  Haiku: { in: 1, out: 5 }, // Classifier — claude-haiku-4-5
+  Opus: { in: 5, out: 25 }, // Coach — claude-opus-4-8
+  Sonnet: { in: 3, out: 15 }, // Critic — claude-sonnet-4-6
+};
+const priceUsd = (model: keyof typeof PRICING, u: Usage): number =>
+  (u.inputTokens * PRICING[model].in + u.outputTokens * PRICING[model].out) / 1_000_000;
+const fmtUsd = (n: number): string => `$${n.toFixed(4)}`;
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -27,11 +58,53 @@ const TAG_COLOURS: Record<string, { bg: string; fg: string }> = {
   mixed: { bg: 'rgba(45,212,191,0.18)', fg: '#5eead4' },
 };
 
+const fmtDate = (d: Date): string =>
+  d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const fmtMinutes = (seconds: number): string => `${Math.round(seconds / 60)} min`;
+
+function Tag({ type }: { type: string }): ReactNode {
+  const colour = TAG_COLOURS[type] ?? { bg: '#1b2130', fg: '#cfd6e4' };
+  return (
+    <span className={styles.tag} style={{ background: colour.bg, color: colour.fg }}>
+      {type}
+    </span>
+  );
+}
+
+function PlanRows({ sessions }: { sessions: PlanShape['sessions'] }): ReactNode {
+  return (
+    <div className={styles.plan}>
+      {sessions.map((session, index) => (
+        <div className={styles.planRow} key={index}>
+          <span className={styles.day}>{DOW[session.day] ?? `Day ${session.day}`}</span>
+          <Tag type={session.type} />
+          <span className={styles.focus}>{session.focus}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const [result, setResult] = useState<CoachResult | null>(null);
   const [progress, setProgress] = useState<Progress[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Per-session labels stream in with the 'classified' event; hold them so the
+  // training-data card can show what the Classifier made of each input session.
+  const labels: Record<string, string> = {};
+  const coachUsageByAttempt: Record<number, Usage> = {};
+  let totalUsd = 0;
+  for (const event of progress) {
+    if (event.stage === 'classified') {
+      for (const s of event.perSession) labels[s.id] = s.type;
+      totalUsd += priceUsd('Haiku', event.usage);
+    } else if (event.stage === 'critic') {
+      coachUsageByAttempt[event.attempt] = event.coachUsage;
+      totalUsd += priceUsd('Opus', event.coachUsage) + priceUsd('Sonnet', event.criticUsage);
+    }
+  }
 
   async function generate() {
     setLoading(true);
@@ -101,6 +174,31 @@ export default function Home() {
 
       <div className={styles.disclaimer}>⚠️ Training aid only — not medical advice.</div>
 
+      <section className={styles.dataCard}>
+        <div className={styles.dataHead}>
+          <span className={styles.dataTitle}>Athlete input — last 3 sessions</span>
+          <span className={styles.dataHint}>the raw history fed to the pipeline</span>
+        </div>
+        <div className={styles.dataTable}>
+          <div className={`${styles.dataRow} ${styles.dataHeadRow}`}>
+            <span>Date</span>
+            <span>Duration</span>
+            <span>Distance</span>
+            <span>Avg HR</span>
+            <span>Classified</span>
+          </div>
+          {SAMPLE_SESSIONS.map((s) => (
+            <div className={styles.dataRow} key={s.id}>
+              <span>{fmtDate(s.date)}</span>
+              <span>{fmtMinutes(s.durationSeconds)}</span>
+              <span>{s.distanceMeters ? `${(s.distanceMeters / 1000).toFixed(1)} km` : '—'}</span>
+              <span>{s.averageHeartRate ? `${s.averageHeartRate} bpm` : '—'}</span>
+              <span>{labels[s.id] ? <Tag type={labels[s.id]!} /> : <span className={styles.pending}>…</span>}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <button className={styles.button} onClick={generate} disabled={loading}>
         {loading && <span className={styles.spinner} aria-hidden />}
         {loading ? 'Coaching…' : 'Generate weekly plan from sample data'}
@@ -114,7 +212,15 @@ export default function Home() {
             // While the Critic is reviewing, show a single live row; once its verdict
             // arrives the verdict row supersedes it.
             if (event.stage === 'reviewing' && !active) return null;
-            return <Step key={index} event={event} active={active} />;
+            let price: string | null = null;
+            if (event.stage === 'classified') price = `${fmtUsd(priceUsd('Haiku', event.usage))} · Haiku`;
+            else if (event.stage === 'coaching') {
+              const u = coachUsageByAttempt[event.attempt];
+              if (u) price = `${fmtUsd(priceUsd('Opus', u))} · Opus`;
+            } else if (event.stage === 'critic') {
+              price = `${fmtUsd(priceUsd('Sonnet', event.criticUsage))} · Sonnet`;
+            }
+            return <Step key={index} event={event} active={active} price={price} />;
           })}
         </div>
       )}
@@ -133,22 +239,12 @@ export default function Home() {
             <span className={styles.metric}>
               <b>{result.cost.inputTokens + result.cost.outputTokens}</b> tokens
             </span>
+            <span className={styles.metric}>
+              <b>{fmtUsd(totalUsd)}</b> total cost
+            </span>
           </div>
 
-          <div className={styles.plan}>
-            {result.plan.sessions.map((session, index) => {
-              const colour = TAG_COLOURS[session.type] ?? { bg: '#1b2130', fg: '#cfd6e4' };
-              return (
-                <div className={styles.planRow} key={index}>
-                  <span className={styles.day}>{DOW[session.day] ?? `Day ${session.day}`}</span>
-                  <span className={styles.tag} style={{ background: colour.bg, color: colour.fg }}>
-                    {session.type}
-                  </span>
-                  <span className={styles.focus}>{session.focus}</span>
-                </div>
-              );
-            })}
-          </div>
+          <PlanRows sessions={result.plan.sessions} />
 
           {!result.accepted && result.verdict.reasons.length > 0 && (
             <ul className={styles.reasons} style={{ marginTop: 16 }}>
@@ -165,12 +261,15 @@ export default function Home() {
   );
 }
 
-function Step({ event, active }: { event: Progress; active: boolean }) {
+function Step({ event, active, price }: { event: Progress; active: boolean; price: string | null }) {
   let dotClass = styles.dotDone;
   let icon: ReactNode = '✓';
   let role = '';
   let title = '';
   let reasons: string[] | null = null;
+  let perSession: { id: string; type: string }[] | null = null;
+  let draft: PlanShape | null = null;
+  let tokens: number | null = null;
 
   switch (event.stage) {
     case 'classified': {
@@ -178,7 +277,8 @@ function Step({ event, active }: { event: Progress; active: boolean }) {
       const counts = Object.entries(event.byType)
         .map(([type, n]) => `${n}× ${type}`)
         .join(', ');
-      title = `labelled sessions — ${counts}`;
+      title = `labelled ${event.perSession.length} sessions — ${counts}`;
+      perSession = event.perSession;
       break;
     }
     case 'coaching':
@@ -197,6 +297,7 @@ function Step({ event, active }: { event: Progress; active: boolean }) {
       break;
     case 'critic':
       role = 'Critic · Sonnet';
+      tokens = event.tokens;
       if (event.accepted) {
         title = `approved the plan (attempt ${event.attempt})`;
       } else {
@@ -204,6 +305,7 @@ function Step({ event, active }: { event: Progress; active: boolean }) {
         icon = '✗';
         title = `requested a revision (attempt ${event.attempt})`;
         reasons = event.reasons;
+        draft = event.plan; // the (rejected) draft the Critic reviewed
       }
       break;
   }
@@ -214,7 +316,22 @@ function Step({ event, active }: { event: Progress; active: boolean }) {
       <div className={styles.stepBody}>
         <div className={styles.stepTitle}>
           <span className={styles.stepRole}>{role}</span> — {title}
+          {price && <span className={styles.stepPrice}>{price}</span>}
+          {tokens !== null && <span className={styles.stepTokens}>{tokens} tok total</span>}
         </div>
+        {perSession && (
+          <div className={styles.chips}>
+            {perSession.map((s) => (
+              <Tag type={s.type} key={s.id} />
+            ))}
+          </div>
+        )}
+        {draft && (
+          <div className={styles.draft}>
+            <div className={styles.draftLabel}>Rejected draft:</div>
+            <PlanRows sessions={draft.sessions} />
+          </div>
+        )}
         {reasons && (
           <ul className={styles.reasons}>
             {reasons.map((reason, index) => (
