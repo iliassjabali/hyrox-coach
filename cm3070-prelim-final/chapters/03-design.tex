@@ -52,9 +52,12 @@ Figure~\ref{fig:architecture} illustrates the data flow. The orchestrator (not s
   \draw[flow] (critic) -- (persist);
   \draw[flow] (persist) -- (ui);
 
-  % Orchestrator band beneath the three agents
-  \node[draw, dashed, rounded corners, fill=orange!6, fit=(clf)(coach)(critic),
-        inner sep=7mm, label=below:{\footnotesize\textbf{Orchestrator} --- routing, schema validation, bounded retries, conflict resolution}] (orch) {};
+  % Orchestrator band beneath the three agents (background layer so it sits BEHIND
+  % the agent nodes; otherwise its fill paints over Classifier/Coach/Critic).
+  \begin{scope}[on background layer]
+    \node[draw, dashed, rounded corners, fill=orange!6, fit=(clf)(coach)(critic),
+          inner sep=7mm, label=below:{\footnotesize\textbf{Orchestrator} --- routing, schema validation, bounded retries, conflict resolution}] (orch) {};
+  \end{scope}
 
   % Critic -> Coach revision feedback loop
   \draw[flow, dashed] (critic.south) to[out=-90, in=-90] node[below, font=\scriptsize, yshift=-1mm] {reject/revise $\rightarrow$ critic feedback} (coach.south);

@@ -10,6 +10,7 @@ Your voice must narrate throughout; you don't need to appear on camera.
   ```bash
   pnpm --filter @hyrox/web dev
   ```
+
   Open http://localhost:3000. Do one warm-up run so the first on-camera run is snappy.
 - Have a terminal and your editor open. **Keep your API key off-screen.**
 - Have `images/architecture.png` open for the architecture section (or show Fig 1 in `main.pdf`).
